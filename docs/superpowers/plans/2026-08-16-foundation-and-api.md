@@ -158,7 +158,7 @@ git commit -m "chore: scaffold Next.js project with Vitest harness"
 - Consumes: Task 1's project and test harness
 - Produces: `serviceClient(): SupabaseClient` from `lib/db/client.ts` — a service-role client for server-side and test use. All eight tables from the spec exist in local Postgres.
 
-- [ ] **Step 1: Start local Supabase**
+- [x] **Step 1: Start local Supabase**
 
 ```bash
 npm install -D supabase
@@ -170,7 +170,7 @@ Copy the printed `API URL`, `anon key`, and `service_role key` into `.env.local`
 
 Docker must be running. If `supabase start` fails, that is the blocker to solve before anything else in this plan.
 
-- [ ] **Step 2: Write the schema migration**
+- [x] **Step 2: Write the schema migration**
 
 Create `supabase/migrations/0001_initial_schema.sql`:
 
@@ -244,7 +244,7 @@ create table versions (
 );
 ```
 
-- [ ] **Step 3: Write the seed**
+- [x] **Step 3: Write the seed**
 
 Create `supabase/seed.sql`:
 
@@ -260,7 +260,7 @@ insert into versions (resource, version) values
 
 The meal schedule is deliberately not seeded here. Real windows are open question O3 and arrive from the business manager. Tests supply their own.
 
-- [ ] **Step 4: Apply the migration and seed**
+- [x] **Step 4: Apply the migration and seed**
 
 ```bash
 npx supabase db reset
@@ -268,7 +268,7 @@ npx supabase db reset
 
 Expected: migration and seed both apply with no errors.
 
-- [ ] **Step 5: Write the database client**
+- [x] **Step 5: Write the database client**
 
 Create `lib/db/client.ts`:
 
@@ -292,7 +292,7 @@ Install the client library:
 npm install @supabase/supabase-js
 ```
 
-- [ ] **Step 6: Write the failing test for the duplicate-swipe guarantee**
+- [x] **Step 6: Write the failing test for the duplicate-swipe guarantee**
 
 This is the most important test in the plan. The entire sync design rests on Postgres rejecting a second swipe for the same person and meal. A mock would pass while the real constraint failed.
 
@@ -346,12 +346,12 @@ describe("swipes primary key", () => {
 });
 ```
 
-- [ ] **Step 7: Run the test**
+- [x] **Step 7: Run the test**
 
 Run: `npm test lib/db/schema.test.ts`
 Expected: PASS. If the first test fails, the primary key is wrong in the migration and every later idempotency claim is void — fix the migration before continuing.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add supabase lib/db package.json package-lock.json
@@ -376,7 +376,7 @@ The single piece of logic both the server and the tablet run. The server's answe
   - `type DerivedMeal = { mealDate: string; mealPeriod: string }`
   - `deriveMeal(scannedAt: Date, schedule: MealWindow[]): DerivedMeal | null`
 
-- [ ] **Step 1: Write the types**
+- [x] **Step 1: Write the types**
 
 Create `lib/meals/types.ts`:
 
@@ -402,7 +402,7 @@ export type DerivedMeal = {
 export const CLUB_TIMEZONE = "America/New_York";
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `lib/meals/derive.test.ts`:
 
@@ -492,12 +492,12 @@ describe("deriveMeal", () => {
 });
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `npm test lib/meals/derive.test.ts`
 Expected: FAIL — `deriveMeal` is not exported from `./derive`.
 
-- [ ] **Step 4: Write the implementation**
+- [x] **Step 4: Write the implementation**
 
 Create `lib/meals/derive.ts`:
 
@@ -560,12 +560,12 @@ export function deriveMeal(scannedAt: Date, schedule: MealWindow[]): DerivedMeal
 }
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `npm test lib/meals/derive.test.ts`
 Expected: PASS, 12 tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/meals
@@ -590,7 +590,7 @@ git commit -m "feat: add shared meal derivation with timezone and grace handling
   - `authenticateDevice(req: Request): Promise<{ deviceId: string } | null>`
   - `POST /api/devices/enroll` accepting `{ code: string }` and returning `{ deviceId, token }`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `lib/auth/device.test.ts`:
 
@@ -682,12 +682,12 @@ describe("enrollment codes", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npm test lib/auth/device.test.ts`
 Expected: FAIL — module `./device` has no such exports.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `lib/auth/device.ts`:
 
@@ -790,12 +790,12 @@ export async function authenticateDevice(
 
 Note on `pendingNames`: it is an in-process map, so a code created on one serverless instance and redeemed on another loses the name and falls back to "Unnamed tablet". That is cosmetic, and enrolment is a rare, supervised action. Task 4 of the dashboard plan replaces it by storing the name on the `enrollment_codes` row.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npm test lib/auth/device.test.ts`
 Expected: PASS, 8 tests.
 
-- [ ] **Step 5: Add the enrolment endpoint**
+- [x] **Step 5: Add the enrolment endpoint**
 
 Create `app/api/devices/enroll/route.ts`:
 
@@ -818,7 +818,7 @@ export async function POST(req: Request) {
 }
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/auth app/api/devices
@@ -844,7 +844,7 @@ git commit -m "feat: add device enrolment and token authentication"
   - `envelope<T>(data: T): Promise<{ data: T; versions: Versions }>`
   - `GET /api/bootstrap` returning `{ data: { people, credentials, schedule }, versions }`
 
-- [ ] **Step 1: Write the failing tests for versions**
+- [x] **Step 1: Write the failing tests for versions**
 
 Create `lib/api/envelope.test.ts`:
 
@@ -882,12 +882,12 @@ describe("versions", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npm test lib/api/envelope.test.ts`
 Expected: FAIL — module `./envelope` not found.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `lib/api/envelope.ts`:
 
@@ -925,12 +925,12 @@ export async function envelope<T>(data: T): Promise<{ data: T; versions: Version
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npm test lib/api/envelope.test.ts`
 Expected: PASS, 3 tests.
 
-- [ ] **Step 5: Write the failing test for bootstrap**
+- [x] **Step 5: Write the failing test for bootstrap**
 
 Create `app/api/bootstrap/route.test.ts`:
 
@@ -997,12 +997,12 @@ describe("GET /api/bootstrap", () => {
 });
 ```
 
-- [ ] **Step 6: Run the test to verify it fails**
+- [x] **Step 6: Run the test to verify it fails**
 
 Run: `npm test app/api/bootstrap`
 Expected: FAIL — `./route` does not export `GET`.
 
-- [ ] **Step 7: Write the bootstrap endpoint**
+- [x] **Step 7: Write the bootstrap endpoint**
 
 Create `app/api/bootstrap/route.ts`:
 
@@ -1045,12 +1045,12 @@ export async function GET(req: Request) {
 }
 ```
 
-- [ ] **Step 8: Run the test to verify it passes**
+- [x] **Step 8: Run the test to verify it passes**
 
 Run: `npm test app/api/bootstrap`
 Expected: PASS, 3 tests.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add lib/api app/api/bootstrap
@@ -1069,7 +1069,7 @@ git commit -m "feat: add version envelope and bootstrap endpoint"
 - Consumes: `authenticateDevice` (Task 4), `envelope` (Task 5)
 - Produces: `POST /api/resolve` accepting `{ token: string }`, returning `{ data: { netid, fullName, isMember, homeClub, photoPath }, versions }` on 200, or 404 when the token is unknown.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `app/api/resolve/route.test.ts`:
 
@@ -1140,12 +1140,12 @@ describe("POST /api/resolve", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test app/api/resolve`
 Expected: FAIL — `./route` does not export `POST`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `app/api/resolve/route.ts`:
 
@@ -1192,12 +1192,12 @@ export async function POST(req: Request) {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npm test app/api/resolve`
 Expected: PASS, 4 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/api/resolve
@@ -1218,7 +1218,7 @@ The endpoint the whole offline design depends on. It must accept the same batch 
 - Consumes: `authenticateDevice` (Task 4), `deriveMeal` (Task 3), `envelope` (Task 5)
 - Produces: `POST /api/sync` accepting `{ swipes: Array<{ netid: string; scannedAt: string; entryMethod: "scan" | "manual" }> }`, returning `{ data: { accepted: number; skipped: number }, versions }`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `app/api/sync/route.test.ts`:
 
@@ -1348,12 +1348,12 @@ describe("POST /api/sync", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npm test app/api/sync`
 Expected: FAIL — `./route` does not export `POST`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `app/api/sync/route.ts`:
 
@@ -1444,12 +1444,12 @@ export async function POST(req: Request) {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npm test app/api/sync`
 Expected: PASS, 8 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/api/sync
@@ -1473,7 +1473,7 @@ One scan travelling the whole path. Deliberately crude — no offline cache, no 
 - Consumes: `POST /api/resolve` (Task 6), `POST /api/sync` (Task 7)
 - Produces: `onScan(handler: (token: string) => void, options?: BurstOptions): () => void` — attaches a document-level listener and returns a detach function.
 
-- [ ] **Step 1: Write the failing tests for the burst detector**
+- [x] **Step 1: Write the failing tests for the burst detector**
 
 Create `lib/scan/burst.test.ts`:
 
@@ -1570,12 +1570,12 @@ describe("onScan", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npm test lib/scan/burst.test.ts`
 Expected: FAIL — module `./burst` not found.
 
-- [ ] **Step 3: Write the burst detector**
+- [x] **Step 3: Write the burst detector**
 
 Create `lib/scan/burst.ts`:
 
@@ -1651,19 +1651,19 @@ export function onScan(
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npm test lib/scan/burst.test.ts`
 Expected: PASS, 7 tests.
 
-- [ ] **Step 5: Commit the detector**
+- [x] **Step 5: Commit the detector**
 
 ```bash
 git add lib/scan
 git commit -m "feat: add card-reader burst detector"
 ```
 
-- [ ] **Step 6: Build the skeleton station page**
+- [x] **Step 6: Build the skeleton station page**
 
 Create `app/station/page.tsx`:
 
@@ -1758,7 +1758,7 @@ export default function StationPage() {
 }
 ```
 
-- [ ] **Step 7: Set up Playwright**
+- [x] **Step 7: Set up Playwright**
 
 ```bash
 npm install -D @playwright/test
@@ -1796,7 +1796,7 @@ Add to `package.json` scripts:
 "test:e2e": "playwright test"
 ```
 
-- [ ] **Step 8: Write the end-to-end skeleton test**
+- [x] **Step 8: Write the end-to-end skeleton test**
 
 Create `e2e/skeleton.spec.ts`:
 
@@ -1865,17 +1865,17 @@ test("a card burst produces a name on screen and a row in Postgres", async ({ pa
 });
 ```
 
-- [ ] **Step 9: Run the end-to-end test**
+- [x] **Step 9: Run the end-to-end test**
 
 Run: `npm run test:e2e`
 Expected: PASS, 1 test. Local Supabase must be running.
 
-- [ ] **Step 10: Run the full suite and build**
+- [x] **Step 10: Run the full suite and build**
 
 Run: `npm test && npm run build`
 Expected: all unit and integration tests pass, build succeeds.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add app/station e2e playwright.config.ts package.json package-lock.json
@@ -1908,7 +1908,7 @@ npx supabase db push
 
 Run the seed against the hosted database using the SQL editor, pasting `supabase/seed.sql`.
 
-- [ ] **Step 2: Write the keep-alive endpoint**
+- [x] **Step 2: Write the keep-alive endpoint**
 
 This is what replaces the $25/month Supabase Pro upgrade. Supabase pauses a free project after 7 days without a request; any query resets the timer.
 
@@ -1928,7 +1928,7 @@ export async function GET() {
 }
 ```
 
-- [ ] **Step 3: Schedule the keep-alive**
+- [x] **Step 3: Schedule the keep-alive**
 
 Create `.github/workflows/keepalive.yml`:
 
@@ -1980,7 +1980,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://meals.capandgownclub.org/api/bo
 
 Expected: the first returns `{"ok":true,...}`. The second returns `401`, proving an unenrolled device is refused in production.
 
-- [ ] **Step 7: Write the README**
+- [x] **Step 7: Write the README**
 
 Replace `README.md` with setup instructions covering: prerequisites (Node, Docker), `npx supabase start`, copying `.env.local.example` to `.env.local`, `npm run dev`, `npm test`, `npm run test:e2e`, and where the spec and plans live. Write it for a club member who has never seen the project, because that is who will read it after you graduate.
 

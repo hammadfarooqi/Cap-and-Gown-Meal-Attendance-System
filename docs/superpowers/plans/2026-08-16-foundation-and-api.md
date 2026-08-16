@@ -6,7 +6,7 @@
 
 **Architecture:** One Next.js App Router project holds the station app, the dashboard, and the API route handlers, deployed as a single Vercel project. Meal derivation lives in `lib/meals/` and is imported by both the server (authoritative) and the tablet (display only), so the two can never disagree about what a schedule means. Postgres enforces the "counted once per meal" rule through a primary key, which is also what makes the sync queue idempotent.
 
-**Tech Stack:** Next.js (App Router, TypeScript), Tailwind, Supabase (Postgres, Storage, Auth), `idb`, Vitest + Testing Library + `fake-indexeddb`, Playwright, Supabase CLI for local Postgres in Docker.
+**Tech Stack:** Next.js 16.3.1 (App Router, TypeScript), React 19.2.8, Tailwind, Supabase (Postgres, Storage, Auth), `idb`, Vitest + Testing Library + `fake-indexeddb`, Playwright, Supabase CLI for local Postgres in Docker.
 
 **Spec:** `docs/specs/2026-08-16-meal-attendance-system-design.md`
 
@@ -36,7 +36,7 @@
 - Consumes: nothing
 - Produces: a working `npm test`, `npm run build`, and `npm run dev`. Path alias `@/*` resolves to the project root.
 
-- [ ] **Step 1: Scaffold the Next.js project**
+- [x] **Step 1: Scaffold the Next.js project**
 
 Run in the repository root:
 
@@ -48,13 +48,13 @@ npx create-next-app@latest . \
 
 Answer "no" to Turbopack if prompted; it adds a variable we do not need to debug under a deadline.
 
-- [ ] **Step 2: Record the actual Next.js version**
+- [x] **Step 2: Record the actual Next.js version**
 
 Run: `node -p "require('./package.json').dependencies.next"`
 
 Write the exact version into the "Tech Stack" line of this plan document, replacing "Next.js". Later tasks and any future club developer need to know what was actually installed.
 
-- [ ] **Step 3: Install the test toolchain**
+- [x] **Step 3: Install the test toolchain**
 
 ```bash
 npm install -D vitest @vitejs/plugin-react jsdom \
@@ -62,7 +62,7 @@ npm install -D vitest @vitejs/plugin-react jsdom \
   @testing-library/jest-dom fake-indexeddb dotenv
 ```
 
-- [ ] **Step 4: Configure Vitest**
+- [x] **Step 4: Configure Vitest**
 
 Create `vitest.config.ts`:
 
@@ -107,7 +107,7 @@ loadEnv({ path: ".env.local" });
 process.env.TZ = "America/New_York";
 ```
 
-- [ ] **Step 5: Add test scripts**
+- [x] **Step 5: Add test scripts**
 
 In `package.json`, add to `"scripts"`:
 
@@ -116,17 +116,17 @@ In `package.json`, add to `"scripts"`:
 "test:watch": "vitest"
 ```
 
-- [ ] **Step 6: Verify the harness runs and the build passes**
+- [x] **Step 6: Verify the harness runs and the build passes**
 
 Run: `npm test`
-Expected: exits 0 with "No test files found" — the runner works, and there is nothing to run yet.
+Expected: "No test files found" (Vitest exits 1 in this case, which is correct behaviour — it means the config resolved and the include/exclude globs applied). Task 2 adds the first real test.
 
 Run: `npm run build`
 Expected: build succeeds.
 
 Do not add a placeholder test to prove the runner works. Task 2 writes the first real one.
 
-- [ ] **Step 7: Write the environment template**
+- [x] **Step 7: Write the environment template**
 
 Create `.env.local.example`:
 
@@ -137,7 +137,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add -A

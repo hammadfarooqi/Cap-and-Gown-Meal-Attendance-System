@@ -1897,7 +1897,7 @@ Do this now, not in week two. Deployment problems found on 2026-08-19 are an aft
 - Consumes: `serviceClient` (Task 2)
 - Produces: `GET /api/keepalive` returning `{ ok: true, at: string }`. A live deployment at the production URL.
 
-- [ ] **Step 1: Create the hosted Supabase project**
+- [x] **Step 1: Create the hosted Supabase project**
 
 Create a free project at supabase.com. Then push the schema:
 
@@ -1953,7 +1953,7 @@ jobs:
 
 GitHub Actions is used rather than Vercel Cron because Vercel's Hobby tier limits cron frequency, and because this job must keep running even if the Vercel project is ever reconfigured.
 
-- [ ] **Step 4: Deploy to Vercel**
+- [x] **Step 4: Deploy to Vercel**
 
 Import the repository into a new Vercel project. Set these environment variables from the hosted Supabase project settings:
 
@@ -1965,11 +1965,11 @@ SUPABASE_SERVICE_ROLE_KEY
 
 `SUPABASE_SERVICE_ROLE_KEY` must **not** be prefixed `NEXT_PUBLIC_`. That prefix ships a value to the browser, and this key bypasses every access rule in the database.
 
-- [ ] **Step 5: Point the subdomain**
+- [x] **Step 5: Point the subdomain**
 
 Add `meals.capandgownclub.org` as a domain in the Vercel project, then add the CNAME record Vercel provides to the club's DNS.
 
-- [ ] **Step 6: Verify the deployment**
+- [x] **Step 6: Verify the deployment**
 
 Run:
 
@@ -1984,7 +1984,7 @@ Expected: the first returns `{"ok":true,...}`. The second returns `401`, proving
 
 Replace `README.md` with setup instructions covering: prerequisites (Node, Docker), `npx supabase start`, copying `.env.local.example` to `.env.local`, `npm run dev`, `npm test`, `npm run test:e2e`, and where the spec and plans live. Write it for a club member who has never seen the project, because that is who will read it after you graduate.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add app/api/keepalive .github README.md

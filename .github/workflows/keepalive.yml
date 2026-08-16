@@ -1,0 +1,26 @@
+name: Supabase keep-alive
+
+# Supabase pauses a free project after 7 days without a request. Any query
+# resets the timer, so this ping is what replaces a $300/year upgrade.
+#
+# GitHub Actions rather than Vercel Cron for two reasons: Vercel's Hobby tier
+# limits cron frequency, and this job must keep running even if the Vercel
+# project is ever reconfigured or redeployed by someone else.
+
+on:
+  schedule:
+    # 09:00 UTC every Monday and Thursday. Two pings a week means one can fail
+    # entirely and the 7-day window is still comfortably met.
+    - cron: "0 9 * * 1,4"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the keep-alive endpoint
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            "${KEEPALIVE_URL:-https://meals.capandgownclub.org/api/keepalive}"
+        env:
+          KEEPALIVE_URL: ${{ vars.KEEPALIVE_URL }}

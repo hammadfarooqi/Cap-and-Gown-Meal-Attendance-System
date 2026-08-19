@@ -33,6 +33,7 @@ export type BootstrapData = {
   people: CachedPerson[];
   credentials: Credential[];
   schedule: MealWindow[];
+  clubs: string[];
   versions: Versions;
 };
 
@@ -90,6 +91,7 @@ export async function openStore() {
         ...data.people.map((p) => people.put(p)),
         ...data.credentials.map((c) => credentials.put(c)),
         meta.put(data.schedule, "schedule"),
+        meta.put(data.clubs, "clubs"),
         meta.put(data.versions, "versions"),
       ]);
       await tx.done;
@@ -129,6 +131,11 @@ export async function openStore() {
 
     async getSchedule(): Promise<MealWindow[]> {
       return ((await db.get("meta", "schedule")) as MealWindow[] | undefined) ?? [];
+    },
+
+    /** The eleven eating clubs plus 'None', for the guest form's dropdown. */
+    async getClubs(): Promise<string[]> {
+      return ((await db.get("meta", "clubs")) as string[] | undefined) ?? [];
     },
 
     async getVersions(): Promise<Versions | null> {

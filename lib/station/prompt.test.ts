@@ -28,6 +28,7 @@ async function seeded(): Promise<StationStore> {
   opened.push(store);
   await store.putBootstrap({
     people: [MEMBER], credentials: [], schedule: SCHEDULE,
+    clubs: ["Cap & Gown", "Cottage", "None"],
     versions: { roster: 1, schedule: 1 },
   });
   return store;

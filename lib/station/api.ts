@@ -11,6 +11,7 @@ export type BootstrapPayload = {
   people: CachedPerson[];
   credentials: Credential[];
   schedule: MealWindow[];
+  clubs: string[];
 };
 
 /**

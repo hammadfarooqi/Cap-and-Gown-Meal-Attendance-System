@@ -76,6 +76,13 @@ describe("GET /api/bootstrap", () => {
     );
   });
 
+  it("returns the club list for the guest form", async () => {
+    const body = await (await GET(request(token))).json();
+    expect(body.data.clubs).toContain("Cap & Gown");
+    expect(body.data.clubs).toContain("Cottage");
+    expect(body.data.clubs).toContain("None");
+  });
+
   it("returns the schedule in the exact shape deriveMeal consumes", async () => {
     // The tablet feeds this straight into deriveMeal. A rename on either side
     // would silently produce "no meal is running" for every scan.

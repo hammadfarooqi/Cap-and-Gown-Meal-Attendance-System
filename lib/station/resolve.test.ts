@@ -32,6 +32,7 @@ async function seeded(credentials: { token: string; netid: string }[] = []): Pro
     people: [MEMBER],
     credentials,
     schedule: SCHEDULE,
+    clubs: ["Cap & Gown", "Cottage", "None"],
     versions: { roster: 1, schedule: 1 },
   });
   return store;

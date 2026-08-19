@@ -26,7 +26,7 @@ async function open(): Promise<StationStore> {
 const payload = (people: CachedPerson[], versions = { roster: 1, schedule: 1 }) =>
   ({
     ok: true as const,
-    data: { people, credentials: [], schedule: SCHEDULE },
+    data: { people, credentials: [], schedule: SCHEDULE, clubs: ["Cap & Gown", "Cottage", "None"] },
     versions,
   });
 
@@ -109,6 +109,7 @@ describe("warmCache", () => {
     const store = await open();
     await store.putBootstrap({
       people: [person("existing")], credentials: [], schedule: SCHEDULE,
+      clubs: ["Cap & Gown", "Cottage", "None"],
       versions: { roster: 3, schedule: 3 },
     });
 
@@ -125,7 +126,8 @@ describe("refreshIfStale", () => {
   const seeded = async (versions: { roster: number; schedule: number }) => {
     const store = await open();
     await store.putBootstrap({
-      people: [person("aa1111")], credentials: [], schedule: SCHEDULE, versions,
+      people: [person("aa1111")], credentials: [], schedule: SCHEDULE,
+      clubs: ["Cap & Gown", "Cottage", "None"], versions,
     });
     return store;
   };

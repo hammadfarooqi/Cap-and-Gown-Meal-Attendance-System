@@ -17,15 +17,16 @@ export async function GET(req: Request) {
 
   const db = serviceClient();
 
-  const [people, credentials, schedule] = await Promise.all([
+  const [people, credentials, schedule, clubs] = await Promise.all([
     db.from("people").select("netid, full_name, is_member, home_club, photo_path"),
     db.from("credentials").select("token, netid"),
     db
       .from("meal_schedule")
       .select("day_of_week, period_name, start_time, end_time, grace_minutes"),
+    db.from("clubs").select("name").order("name"),
   ]);
 
-  if (people.error || credentials.error || schedule.error) {
+  if (people.error || credentials.error || schedule.error || clubs.error) {
     return NextResponse.json({ error: "bootstrap failed" }, { status: 500 });
   }
 
@@ -39,6 +40,7 @@ export async function GET(req: Request) {
         photoPath: p.photo_path,
       })),
       credentials: credentials.data,
+      clubs: clubs.data.map((c) => c.name),
       schedule: schedule.data.map((w) => ({
         dayOfWeek: w.day_of_week,
         periodName: w.period_name,

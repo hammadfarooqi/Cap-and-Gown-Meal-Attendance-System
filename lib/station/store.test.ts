@@ -45,6 +45,7 @@ describe("the station store", () => {
       people: [person("aa1111")],
       credentials: [{ token: "CARD-1", netid: "aa1111" }],
       schedule: SCHEDULE,
+      clubs: ["Cap & Gown", "Cottage", "None"],
       versions: { roster: 1, schedule: 1 },
     });
 
@@ -54,7 +55,7 @@ describe("the station store", () => {
   it("returns null for a token it has never seen", async () => {
     const store = await open();
     await store.putBootstrap({
-      people: [], credentials: [], schedule: [], versions: { roster: 1, schedule: 1 },
+      people: [], credentials: [], schedule: [], clubs: [], versions: { roster: 1, schedule: 1 },
     });
 
     expect(await store.resolveToken("NOPE")).toBeNull();
@@ -64,7 +65,7 @@ describe("the station store", () => {
     const store = await open();
     await store.putBootstrap({
       people: [person("aa1111")], credentials: [],
-      schedule: SCHEDULE, versions: { roster: 1, schedule: 1 },
+      schedule: SCHEDULE, clubs: ["Cap & Gown", "Cottage", "None"], versions: { roster: 1, schedule: 1 },
     });
 
     await store.addCredential("NEW-CARD", "aa1111");
@@ -78,7 +79,7 @@ describe("the station store", () => {
     await store.putBootstrap({
       people: [person("aa1111")],
       credentials: [{ token: "OLD", netid: "aa1111" }],
-      schedule: SCHEDULE, versions: { roster: 1, schedule: 1 },
+      schedule: SCHEDULE, clubs: ["Cap & Gown", "Cottage", "None"], versions: { roster: 1, schedule: 1 },
     });
     await store.addCredential("NEW", "aa1111");
 
@@ -91,7 +92,7 @@ describe("the station store", () => {
     await first.putBootstrap({
       people: [person("aa1111")],
       credentials: [{ token: "CARD-1", netid: "aa1111" }],
-      schedule: SCHEDULE, versions: { roster: 4, schedule: 2 },
+      schedule: SCHEDULE, clubs: ["Cap & Gown", "Cottage", "None"], versions: { roster: 4, schedule: 2 },
     });
 
     const second = await open();
@@ -104,11 +105,11 @@ describe("the station store", () => {
     const store = await open();
     await store.putBootstrap({
       people: [person("aa1111"), person("bb2222")],
-      credentials: [], schedule: SCHEDULE, versions: { roster: 1, schedule: 1 },
+      credentials: [], schedule: SCHEDULE, clubs: ["Cap & Gown", "Cottage", "None"], versions: { roster: 1, schedule: 1 },
     });
     await store.putBootstrap({
       people: [person("aa1111")],
-      credentials: [], schedule: SCHEDULE, versions: { roster: 2, schedule: 1 },
+      credentials: [], schedule: SCHEDULE, clubs: ["Cap & Gown", "Cottage", "None"], versions: { roster: 2, schedule: 1 },
     });
 
     expect((await store.allMembers()).map((p) => p.netid)).toEqual(["aa1111"]);
@@ -119,7 +120,7 @@ describe("the station store", () => {
     await store.putBootstrap({
       people: [person("aa1111"), person("bb2222"), person("cc3333")],
       credentials: [{ token: "CARD-B", netid: "bb2222" }],
-      schedule: SCHEDULE, versions: { roster: 1, schedule: 1 },
+      schedule: SCHEDULE, clubs: ["Cap & Gown", "Cottage", "None"], versions: { roster: 1, schedule: 1 },
     });
 
     const unbound = (await store.unboundMembers()).map((p) => p.netid);
@@ -132,7 +133,7 @@ describe("the station store", () => {
     const store = await open();
     await store.putBootstrap({
       people: [person("aa1111"), person("gg9999", { isMember: false, homeClub: "Cottage" })],
-      credentials: [], schedule: SCHEDULE, versions: { roster: 1, schedule: 1 },
+      credentials: [], schedule: SCHEDULE, clubs: ["Cap & Gown", "Cottage", "None"], versions: { roster: 1, schedule: 1 },
     });
 
     expect((await store.unboundMembers()).map((p) => p.netid)).toEqual(["aa1111"]);
@@ -160,7 +161,7 @@ describe("the station store", () => {
     await store.putPhoto("aa1111.webp", new Blob(["bytes"]));
     await store.putBootstrap({
       people: [person("aa1111")], credentials: [],
-      schedule: SCHEDULE, versions: { roster: 9, schedule: 1 },
+      schedule: SCHEDULE, clubs: ["Cap & Gown", "Cottage", "None"], versions: { roster: 9, schedule: 1 },
     });
 
     expect(await store.hasPhoto("aa1111.webp")).toBe(true);
@@ -203,7 +204,7 @@ describe("the station store", () => {
     const store = await open();
     await store.enqueue({ kind: "swipe", netid: "aa1111", scannedAt: "2026-09-02T16:00:00Z", entryMethod: "scan" });
     await store.putBootstrap({
-      people: [], credentials: [], schedule: [], versions: { roster: 2, schedule: 2 },
+      people: [], credentials: [], schedule: [], clubs: [], versions: { roster: 2, schedule: 2 },
     });
 
     expect(await store.outboxSize()).toBe(1);

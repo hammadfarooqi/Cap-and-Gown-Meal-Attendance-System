@@ -87,6 +87,7 @@ export async function warmCache(
     people: result.data.people,
     credentials: result.data.credentials,
     schedule: result.data.schedule,
+    clubs: result.data.clubs,
     versions: result.versions,
   });
 

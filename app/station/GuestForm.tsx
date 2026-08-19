@@ -1,0 +1,84 @@
+"use client";
+
+import { useState } from "react";
+import { isValidNetid } from "@/lib/directory/lookup";
+
+type GuestFormProps = {
+  clubs: string[];
+  onSubmit: (netid: string, homeClub: string) => void;
+  onCancel: () => void;
+};
+
+export function GuestForm({ clubs, onSubmit, onCancel }: GuestFormProps) {
+  const [netid, setNetid] = useState("");
+  const [club, setClub] = useState(clubs[0] ?? "None");
+  const [touched, setTouched] = useState(false);
+
+  const valid = isValidNetid(netid);
+
+  return (
+    <form
+      className="flex w-full max-w-md flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setTouched(true);
+        // Checked here as well as on the server so an obvious typo never
+        // costs a round trip while someone waits at the tablet.
+        if (valid) onSubmit(netid.trim().toLowerCase(), club);
+      }}
+    >
+      <h2 className="text-2xl font-semibold">Guest</h2>
+
+      <label className="flex flex-col gap-1">
+        <span className="text-sm text-slate-600">netID</span>
+        <input
+          autoFocus
+          type="text"
+          value={netid}
+          onChange={(e) => setNetid(e.target.value)}
+          onBlur={() => setTouched(true)}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-label="Guest netID"
+          className="rounded-lg border border-slate-300 px-4 py-3 text-xl"
+        />
+      </label>
+
+      {touched && !valid && (
+        <p role="alert" className="text-sm text-red-700">
+          That does not look like a netID.
+        </p>
+      )}
+
+      <label className="flex flex-col gap-1">
+        <span className="text-sm text-slate-600">Their club</span>
+        <select
+          value={club}
+          onChange={(e) => setClub(e.target.value)}
+          aria-label="Home club"
+          className="rounded-lg border border-slate-300 px-4 py-3 text-xl"
+        >
+          {clubs.map((name) => (
+            <option key={name} value={name}>
+              {name === "None" ? "Not in a club" : name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="flex gap-3">
+        <button
+          type="submit"
+          disabled={!valid}
+          className="rounded-lg bg-slate-900 px-6 py-3 text-lg text-white disabled:opacity-40"
+        >
+          Check in
+        </button>
+        <button type="button" onClick={onCancel} className="px-4 text-slate-500 underline">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}

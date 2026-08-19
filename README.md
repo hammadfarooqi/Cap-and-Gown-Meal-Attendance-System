@@ -57,29 +57,18 @@ The station app refuses to work until the browser holds a device token. This is
 deliberate: without it, anyone who learns the URL could open the page on their
 phone and check themselves in.
 
-In development, create a code and redeem it by hand:
+Sign in to the dashboard, open **Tablets**, give the tablet a name, and press
+**Get a code**. On the tablet, open `/station` and type the code in. It expires
+after fifteen minutes.
+
+To sign in you first need an account. There is no admin yet, so no admin can
+create one — this is the one-time bootstrap:
 
 ```bash
-# In a Node REPL, or a scratch script:
-#   const { createEnrollmentCode } = require('./lib/auth/device')
-#   await createEnrollmentCode('Lane 1')
+npm run create-admin -- you@princeton.edu 'a good long password'
 ```
 
-Then, in the browser console on `/station`:
-
-```js
-const res = await fetch("/api/devices/enroll", {
-  method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({ code: "THE-CODE" }),
-});
-localStorage.setItem("deviceToken", (await res.json()).token);
-location.reload();
-```
-
-The admin dashboard will replace this with a button. Until then, the end-to-end
-tests do the same thing automatically, so `npm run test:e2e` is the easiest way
-to see a full scan work.
+Every account after that is created inside the dashboard, under **Officers**.
 
 ## Running the tests
 

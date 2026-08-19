@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 import { serviceClient } from "@/lib/db/client";
 import { sessionClient } from "@/lib/supabase/server";
 
@@ -117,16 +118,37 @@ export async function resetAdminPassword(userId: string, password: string): Prom
 }
 
 /**
- * The gate on every /admin route. Redirects rather than throwing, and gives
- * the same answer whether the visitor is signed out or merely not an officer —
- * so the login page cannot be used to find out who is on the board.
+ * The signed-in officer, or null.
+ *
+ * Gives the same answer whether the visitor is signed out or merely not on
+ * the allowlist, so nothing downstream can leak which one it was.
  */
-export async function requireAdmin(): Promise<{ userId: string; email: string }> {
+export async function adminOrNull(): Promise<{ userId: string; email: string } | null> {
   const supabase = await sessionClient();
   const { data } = await supabase.auth.getUser();
 
   const user = data.user;
-  if (!user || !(await isAdmin(user.id))) redirect("/admin/login");
+  if (!user || !(await isAdmin(user.id))) return null;
 
   return { userId: user.id, email: user.email ?? "" };
+}
+
+/**
+ * The gate on every /admin PAGE. Redirects to the login form.
+ *
+ * Pages redirect; API routes must not. A redirecting API answers an
+ * unauthenticated fetch with a 307 to the login page, which the browser
+ * follows and reports as a perfectly good 200 — so a caller cannot tell
+ * refusal from success. Route handlers use requireAdminApi instead.
+ */
+export async function requireAdmin(): Promise<{ userId: string; email: string }> {
+  const admin = await adminOrNull();
+  if (!admin) redirect("/admin/login");
+  return admin;
+}
+
+/** The gate on every /api/admin route. Returns a 401 response, or null. */
+export async function requireAdminApi(): Promise<Response | null> {
+  if (await adminOrNull()) return null;
+  return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 }

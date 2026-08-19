@@ -60,13 +60,13 @@ Everything the tablet knows, in IndexedDB. One module owns the schema so nothing
     - `removeFromOutbox(ids: number[]): Promise<void>`
     - `outboxSize(): Promise<number>`
 
-- [ ] **Step 1: Install idb**
+- [x] **Step 1: Install idb**
 
 ```bash
 npm install idb
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `lib/station/store.test.ts`:
 
@@ -265,12 +265,12 @@ describe("the station store", () => {
 });
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `npm test lib/station/store`
 Expected: FAIL — module `./store` not found.
 
-- [ ] **Step 4: Write the implementation**
+- [x] **Step 4: Write the implementation**
 
 Create `lib/station/store.ts`. Schema — database `cap-station`, version 1, five object stores:
 
@@ -289,12 +289,12 @@ Requirements the tests pin down:
 - `unboundMembers()` returns `isMember` people with no row in `credentials` pointing at them, and it is used only to order the picker — `allMembers()` backs the search that must always be available.
 - `peekOutbox()` returns items in insertion order with their numeric `id` attached.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `npm test lib/station/store`
 Expected: PASS, 15 tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/station package.json package-lock.json
@@ -323,7 +323,7 @@ Two API routes Plan 1 did not build. The prompt cannot resolve an unknown card w
   - `POST /api/bind` accepting `{ token, netid }` → `{ data: { token, netid }, versions }`
   - `POST /api/guests` accepting `{ netid, homeClub, token? }` → `{ data: CachedPerson, versions }`
 
-- [ ] **Step 1: Write the directory stub and its tests**
+- [x] **Step 1: Write the directory stub and its tests**
 
 Open question **O2** — whether TigerBook or Princeton LDAP is reachable from a serverless function — is not resolved. This module is the seam that keeps it from blocking anything.
 
@@ -406,12 +406,12 @@ describe("lookupNetid", () => {
 });
 ```
 
-- [ ] **Step 2: Run the directory tests**
+- [x] **Step 2: Run the directory tests**
 
 Run: `npm test lib/directory`
 Expected: PASS, 12 tests.
 
-- [ ] **Step 3: Write the bind endpoint tests**
+- [x] **Step 3: Write the bind endpoint tests**
 
 Create `app/api/bind/route.test.ts`. It must prove:
 
@@ -428,11 +428,11 @@ Create `app/api/bind/route.test.ts`. It must prove:
 
 The 409 case is the one that matters. Spec section 8 says the server keeps its existing binding when an offline tablet disagrees. **The test must assert the original row still points where it did**, not merely that the response was an error.
 
-- [ ] **Step 4: Write the bind endpoint**
+- [x] **Step 4: Write the bind endpoint**
 
 Create `app/api/bind/route.ts`. Authenticate, validate, confirm the person exists, then insert into `credentials`. On unique violation (`23505`), read the existing row: if it already points at the same netID, return 200 — re-sending a queued binding must be free, exactly as with swipes. If it points elsewhere, return 409 and change nothing. Call `bumpVersion("roster")` on a real insert.
 
-- [ ] **Step 5: Write the guests endpoint tests**
+- [x] **Step 5: Write the guests endpoint tests**
 
 Create `app/api/guests/route.test.ts`. It must prove:
 
@@ -450,11 +450,11 @@ Create `app/api/guests/route.test.ts`. It must prove:
 
 The "already known" case is the important one. A **departed member** eating as a guest already exists in `people`. Creating them must not clobber their record — and a **current member** whose card was mis-scanned into the guest flow must not be demoted to guest.
 
-- [ ] **Step 6: Write the guests endpoint**
+- [x] **Step 6: Write the guests endpoint**
 
 Create `app/api/guests/route.ts`. Authenticate, `lookupNetid`, reject on null. If the person exists, return them untouched and bind the token if one was supplied. Otherwise insert with `is_member: false`, the supplied `home_club`, and `full_name` from the directory or the netID itself as a fallback. Bind the token. Bump the roster version.
 
-- [ ] **Step 7: Verify and commit**
+- [x] **Step 7: Verify and commit**
 
 ```bash
 set -o pipefail
@@ -480,7 +480,7 @@ One module owns every network call, its timeout budget, and its retries. Nothing
   - `bootstrap(token)`, `resolve(token, card)`, `bind(token, card, netid)`, `createGuest(token, netid, homeClub, card)`, `sync(token, items)`
   - `status: null` means the network never answered. A number means the server answered and refused.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `lib/station/api.test.ts`. Mock `globalThis.fetch`. It must prove:
 
@@ -497,11 +497,11 @@ Create `lib/station/api.test.ts`. Mock `globalThis.fetch`. It must prove:
 
 Use fake timers for the budget tests so they run instantly.
 
-- [ ] **Step 2: Run to verify failure, then implement**
+- [x] **Step 2: Run to verify failure, then implement**
 
 Create `lib/station/api.ts`. One private `request()` using `AbortController` with a 1-second per-attempt timeout and at most three attempts. Retry only on network errors and 5xx — never on 4xx, which are answers, not failures.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ```bash
 set -o pipefail && npm test lib/station/api
@@ -521,7 +521,7 @@ git commit -m "feat: add the station API client with a 3-second failure budget"
 - Consumes: `StationStore`, `lib/station/api`
 - Produces: `flushOutbox(deps): Promise<{ sent: number; remaining: number }>` and `startOutboxLoop(deps, intervalMs?): () => void`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `lib/station/outbox.test.ts`. It must prove:
 
@@ -538,7 +538,7 @@ Create `lib/station/outbox.test.ts`. It must prove:
 
 That last one is a real hazard: a scan triggers an immediate flush while the interval flush is mid-flight. Guard with a module-level in-flight flag.
 
-- [ ] **Step 2: Implement, verify, commit**
+- [x] **Step 2: Implement, verify, commit**
 
 ```bash
 set -o pipefail && npm test lib/station/outbox
@@ -562,7 +562,7 @@ The heart of the app, and deliberately free of React so it can be tested directl
   - `type ScanOutcome = { kind: "no-meal" } | { kind: "checked-in"; person: CachedPerson; mealPeriod: string } | { kind: "prompt"; card: string } | { kind: "failed" }`
   - `resolveScan(card: string, deps: ResolveDeps): Promise<ScanOutcome>`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `lib/station/resolve.test.ts`. Dependencies are injected, so every case is reachable without a network. It must prove:
 
@@ -581,7 +581,7 @@ Create `lib/station/resolve.test.ts`. Dependencies are injected, so every case i
 
 The repeat-scan case is worth stating plainly: the tablet does **not** deduplicate. It queues both. The database's primary key collapses them. Duplicating that logic on the tablet would mean two places to be wrong.
 
-- [ ] **Step 2: Implement, verify, commit**
+- [x] **Step 2: Implement, verify, commit**
 
 ```bash
 set -o pipefail && npm test lib/station/resolve
@@ -602,7 +602,7 @@ git commit -m "feat: add four-case scan resolution"
   - `bindMember(card, netid, deps): Promise<ScanOutcome>` — works fully offline
   - `createGuest(card, netid, homeClub, deps): Promise<ScanOutcome>` — needs the server, abandons on failure
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 It must prove:
 
@@ -617,7 +617,7 @@ It must prove:
 
 The offline-guest test is the one that documents an intentional data loss. Its name should say so, or a future reader will "fix" it.
 
-- [ ] **Step 2: Implement, verify, commit**
+- [x] **Step 2: Implement, verify, commit**
 
 ```bash
 set -o pipefail && npm test lib/station/prompt
@@ -639,7 +639,7 @@ git commit -m "feat: add member binding and guest creation from the prompt"
   - `refreshIfStale(deps, seen: Versions): Promise<boolean>`
   - `photoUrl(store, photoPath): Promise<string | null>` — an object URL, or null for the initials placeholder
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 It must prove:
 
@@ -655,7 +655,7 @@ It must prove:
 | **a refresh preserves cached photos and the outbox** | already asserted in the store; asserted again through this path |
 | a failed refresh leaves the existing cache intact | a bad network must not empty a working tablet |
 
-- [ ] **Step 2: Implement, verify, commit**
+- [x] **Step 2: Implement, verify, commit**
 
 Photos download with limited concurrency — six at a time — so three tablets warming at once over club Wi-Fi do not open 300 parallel connections.
 
@@ -685,7 +685,7 @@ Every piece of logic is already tested. This task is rendering.
 **Interfaces:**
 - Consumes: everything from Tasks 1–7
 
-- [ ] **Step 1: Screen states**
+- [x] **Step 1: Screen states**
 
 | State | Shows | Leaves when |
 |---|---|---|
@@ -697,21 +697,21 @@ Every piece of logic is already tested. This task is rendering.
 | `prompt` | Member / Guest choice | resolved or cancelled |
 | `failed` | "Could not reach the server — not counted" | 3 s, or the next scan |
 
-- [ ] **Step 2: Avatar**
+- [x] **Step 2: Avatar**
 
 `Avatar.tsx` renders the cached photo, or **initials in a circle** when there is none. Headshots are open question O5 and may not arrive before go-live; the placeholder must look deliberate rather than broken. Revoke object URLs on unmount.
 
-- [ ] **Step 3: Member picker**
+- [x] **Step 3: Member picker**
 
 Unbound members first, then a search across **all** members. A member who already has a card and shows up with a replacement must be findable — otherwise they are stuck as a guest. Search matches name and netID, case-insensitively.
 
 Tests must prove: unbound listed first; search finds an already-bound member; search is case-insensitive; selecting fires the callback with the netID.
 
-- [ ] **Step 4: Guest form**
+- [x] **Step 4: Guest form**
 
 netID field plus a club dropdown from the twelve seeded clubs. Client-side `isValidNetid` before submitting, so an obvious typo never reaches the server.
 
-- [ ] **Step 5: Screen tests**
+- [x] **Step 5: Screen tests**
 
 `StationScreen.test.tsx` must prove:
 
@@ -722,11 +722,11 @@ netID field plus a club dropdown from the twelve seeded clubs. Client-side `isVa
 - the idle screen shows the current meal name
 - the idle screen shows an unsynced count when the outbox is not empty
 
-- [ ] **Step 6: Rewrite `page.tsx` as a shell**
+- [x] **Step 6: Rewrite `page.tsx` as a shell**
 
 It owns the burst listener, the store handle, and the outbox loop, and renders whichever screen the state calls for. All decisions live in `lib/station/`.
 
-- [ ] **Step 7: Verify and commit**
+- [x] **Step 7: Verify and commit**
 
 ```bash
 set -o pipefail
@@ -745,7 +745,7 @@ The design's core claims, verified in a real browser — the only place `setOffl
 - Create: `e2e/offline.spec.ts`
 - Delete: `e2e/skeleton.spec.ts` (superseded)
 
-- [ ] **Step 1: Write the four tests**
+- [x] **Step 1: Write the four tests**
 
 ```
 1. A known card scans with the network off.
@@ -769,11 +769,11 @@ The design's core claims, verified in a real browser — the only place `setOffl
 
 Test 2 is the failure drill from the spec, run automatically. It is the claim the entire architecture exists to support, and August 30 gives you one chance to check it by hand.
 
-- [ ] **Step 2: Fixture rules**
+- [x] **Step 2: Fixture rules**
 
 Insert meal windows at **03:00–04:00**, clear of every service hour, and derive the weekday with `Intl` in `America/New_York` — never `getDay()`. Both rules exist because both mistakes have already been made in this repo.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ```bash
 set -o pipefail
@@ -801,3 +801,27 @@ Plan 3 territory. Listed so their absence reads as a decision.
 | **O1** | Narrowed. The magstripe reader is ordered. When it arrives, swipe a card into a plain text editor, send the literal characters, and one parsing module is written. `MIN_TOKEN_LENGTH`, `MAX_BURST_MS`, and `GAP_MS` are tuned then. Magstripe output often carries sentinels (`;…=…?`) and some readers emit one Enter per track, which would fire two scans per swipe — the parser handles both. |
 | **O2** | Isolated behind `lib/directory/lookup.ts`. Not blocking. |
 | **O5** | Isolated behind the initials placeholder. Not blocking. |
+
+
+---
+
+## Post-execution finding: the app shell is not cached
+
+**Found 2026-08-17, while writing the offline end-to-end tests. Not fixed.**
+
+IndexedDB holds everything a tablet needs to serve a meal. But the app shell —
+the HTML and JavaScript — is still fetched over the network. Reload a tablet
+during a Wi-Fi outage and the browser cannot load the page at all
+(`ERR_INTERNET_DISCONNECTED`), so the warm cache is unreachable.
+
+The spec's architecture diagram calls the station app a PWA. The service
+worker that would make that true was never planned, in this plan or in plan 1.
+
+`e2e/offline.spec.ts` carries a `test.fixme` named for this, so it stays
+visible in the suite rather than living only in a document.
+
+**Impact:** a tablet that reboots or is refreshed during an outage is dead
+until the network returns. Everything else offline works.
+
+**Fix:** a service worker caching the shell, plus a manifest. Small — a few
+hours — but it is genuinely new scope and belongs to its own plan.

@@ -115,16 +115,25 @@ describe("dailyHeadcount", () => {
 });
 
 describe("rushHistogram", () => {
+  it("separates the meals rather than putting them on one long axis", async () => {
+    // Lunch and dinner six hours apart on a single axis is mostly empty
+    // space. Each meal is its own small multiple.
+    const buckets = await rushHistogram(RANGE, 5);
+    expect(new Set(buckets.map((b) => b.mealPeriod))).toEqual(new Set(["lunch", "dinner"]));
+  });
+
   it("buckets by New York minute-of-day", async () => {
     // Noon in New York is minute 720. Getting the timezone wrong puts it at
     // 960 or 1020 and every peak reads four hours late.
     const buckets = await rushHistogram(RANGE, 5);
-    expect(buckets.find((b) => b.minuteOfDay === 720)?.total).toBeGreaterThan(0);
+    const lunch = buckets.filter((b) => b.mealPeriod === "lunch");
+    expect(lunch.find((b) => b.minuteOfDay === 720)?.total).toBeGreaterThan(0);
   });
 
   it("separates arrivals twenty minutes apart", async () => {
     const buckets = await rushHistogram(RANGE, 5);
-    expect(buckets.find((b) => b.minuteOfDay === 740)?.total).toBe(1);
+    const lunch = buckets.filter((b) => b.mealPeriod === "lunch");
+    expect(lunch.find((b) => b.minuteOfDay === 740)?.total).toBe(1);
   });
 
   it("honours the bucket width", async () => {

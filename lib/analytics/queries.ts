@@ -9,7 +9,7 @@ export type HeadcountRow = {
   guests: number;
 };
 
-export type HistogramBucket = { minuteOfDay: number; total: number };
+export type HistogramBucket = { mealPeriod: string; minuteOfDay: number; total: number };
 
 export type MealCount = {
   mealPeriod: string;
@@ -61,6 +61,7 @@ export async function rushHistogram(
   if (error) throw error;
 
   return (data ?? []).map((row: Record<string, unknown>) => ({
+    mealPeriod: String(row.meal_period),
     minuteOfDay: num(row.minute_of_day),
     total: num(row.total),
   }));

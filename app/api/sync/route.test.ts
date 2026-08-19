@@ -8,10 +8,16 @@ const DEVICE = "synctest-lane";
 const NETIDS = ["sync0001", "sync0002"];
 let token: string;
 
-// Wednesday 2026-09-02, 12:00 New York — inside the lunch window below.
-const DURING_LUNCH = "2026-09-02T16:00:00.000Z";
-// Wednesday 2026-09-02, 15:00 New York — between meals.
-const BETWEEN_MEALS = "2026-09-02T19:00:00.000Z";
+// This file inserts its own meal window rather than leaning on the seeded
+// schedule, and it must not overlap a real one. deriveMeal returns the first
+// match, so an overlapping fixture silently resolves to the real meal instead
+// and the assertions drift. 03:00-04:00 is clear of every service hour.
+const PERIOD = "synctest-window";
+
+// Wednesday 2026-09-02, 03:30 New York — inside the fixture window.
+const IN_WINDOW = "2026-09-02T07:30:00.000Z";
+// Wednesday 2026-09-02, 02:00 New York — outside every window, real or fixture.
+const OUTSIDE_ANY_MEAL = "2026-09-02T06:00:00.000Z";
 
 beforeAll(async () => {
   const { code } = await createEnrollmentCode(DEVICE);
@@ -19,9 +25,9 @@ beforeAll(async () => {
 
   await db.from("meal_schedule").upsert({
     day_of_week: 3,
-    period_name: "sync-lunch",
-    start_time: "11:30:00",
-    end_time: "13:30:00",
+    period_name: PERIOD,
+    start_time: "03:00:00",
+    end_time: "04:00:00",
     grace_minutes: 15,
   });
   await db.from("people").upsert([
@@ -37,7 +43,7 @@ beforeEach(async () => {
 afterAll(async () => {
   await db.from("swipes").delete().in("netid", NETIDS);
   await db.from("people").delete().in("netid", NETIDS);
-  await db.from("meal_schedule").delete().eq("period_name", "sync-lunch");
+  await db.from("meal_schedule").delete().eq("period_name", PERIOD);
 
   const { data } = await db.from("devices").select("id").eq("name", DEVICE);
   const ids = (data ?? []).map((d) => d.id);
@@ -57,7 +63,7 @@ const request = (body: unknown, bearer?: string) =>
     body: JSON.stringify(body),
   });
 
-const oneSwipe = (netid: string, scannedAt = DURING_LUNCH) => ({
+const oneSwipe = (netid: string, scannedAt = IN_WINDOW) => ({
   swipes: [{ netid, scannedAt, entryMethod: "scan" }],
 });
 
@@ -81,7 +87,7 @@ describe("POST /api/sync", () => {
 
     const { data } = await db.from("swipes").select("*").eq("netid", "sync0001").single();
     expect(data!.meal_date).toBe("2026-09-02");
-    expect(data!.meal_period).toBe("sync-lunch");
+    expect(data!.meal_period).toBe(PERIOD);
   });
 
   it("is idempotent — sending the same batch three times leaves one row", async () => {
@@ -95,8 +101,8 @@ describe("POST /api/sync", () => {
   });
 
   it("keeps the FIRST scan time when a duplicate arrives later", async () => {
-    await POST(request(oneSwipe("sync0001", "2026-09-02T16:00:00.000Z"), token));
-    await POST(request(oneSwipe("sync0001", "2026-09-02T16:30:00.000Z"), token));
+    await POST(request(oneSwipe("sync0001", "2026-09-02T07:30:00.000Z"), token));
+    await POST(request(oneSwipe("sync0001", "2026-09-02T07:45:00.000Z"), token));
 
     const { data } = await db
       .from("swipes")
@@ -106,7 +112,7 @@ describe("POST /api/sync", () => {
 
     // The rush-hour histogram reads scanned_at, so it must be arrival time,
     // not the time of whichever duplicate happened to sync last.
-    expect(new Date(data!.scanned_at).toISOString()).toBe("2026-09-02T16:00:00.000Z");
+    expect(new Date(data!.scanned_at).toISOString()).toBe("2026-09-02T07:30:00.000Z");
   });
 
   it("snapshots membership onto the swipe", async () => {
@@ -137,7 +143,7 @@ describe("POST /api/sync", () => {
   });
 
   it("skips a scan that falls outside every meal window", async () => {
-    const res = await POST(request(oneSwipe("sync0001", BETWEEN_MEALS), token));
+    const res = await POST(request(oneSwipe("sync0001", OUTSIDE_ANY_MEAL), token));
     expect((await res.json()).data).toEqual({ accepted: 0, skipped: 1 });
     expect(await countFor("sync0001")).toBe(0);
   });
@@ -145,8 +151,8 @@ describe("POST /api/sync", () => {
   it("skips a netid nobody has heard of rather than failing the batch", async () => {
     const res = await POST(request({
       swipes: [
-        { netid: "ghost999", scannedAt: DURING_LUNCH, entryMethod: "scan" },
-        { netid: "sync0001", scannedAt: DURING_LUNCH, entryMethod: "scan" },
+        { netid: "ghost999", scannedAt: IN_WINDOW, entryMethod: "scan" },
+        { netid: "sync0001", scannedAt: IN_WINDOW, entryMethod: "scan" },
       ],
     }, token));
 
@@ -157,8 +163,8 @@ describe("POST /api/sync", () => {
   it("accepts a mixed batch without letting one bad item lose the good ones", async () => {
     const res = await POST(request({
       swipes: [
-        { netid: "sync0001", scannedAt: DURING_LUNCH, entryMethod: "scan" },
-        { netid: "sync0002", scannedAt: BETWEEN_MEALS, entryMethod: "scan" },
+        { netid: "sync0001", scannedAt: IN_WINDOW, entryMethod: "scan" },
+        { netid: "sync0002", scannedAt: OUTSIDE_ANY_MEAL, entryMethod: "scan" },
       ],
     }, token));
 

@@ -9,12 +9,28 @@ const NETID = "e2e00001";
 const DEVICE = "e2etest-lane";
 const PERIOD = "e2e-always-open";
 
+/**
+ * Today's weekday IN THE CLUB'S TIMEZONE.
+ *
+ * Not `new Date().getDay()`, which reads the machine's own zone. A developer
+ * on Pacific time at 23:00 is still on Tuesday while New York is already on
+ * Wednesday, so the fixture would install its window on the wrong day and the
+ * scan would find no meal. This is the same trap deriveMeal exists to avoid.
+ */
+function clubWeekday(): number {
+  const short = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+  }).format(new Date());
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(short);
+}
+
 test.beforeEach(async () => {
   // A window that is open right now, whatever time this test runs. The meal
   // schedule itself is covered by deriveMeal's unit tests; here it only needs
   // to not be the reason the test fails.
   await db.from("meal_schedule").upsert({
-    day_of_week: new Date().getDay(),
+    day_of_week: clubWeekday(),
     period_name: PERIOD,
     start_time: "00:00:00",
     end_time: "23:59:59",

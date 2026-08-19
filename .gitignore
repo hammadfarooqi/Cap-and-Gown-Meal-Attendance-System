@@ -44,3 +44,7 @@ next-env.d.ts
 !.env.local.example
 test-results/
 playwright-report/
+
+# Student rosters. Real names and email addresses — never in the repo.
+*.csv
+!supabase/**/*.csv

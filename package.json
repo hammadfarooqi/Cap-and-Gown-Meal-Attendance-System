@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "create-admin": "node scripts/create-admin.mjs"
+    "create-admin": "node scripts/create-admin.mjs",
+    "load-roster": "node scripts/load-roster.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

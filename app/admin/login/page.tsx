@@ -1,0 +1,11 @@
+import { LoginForm } from "./LoginForm";
+
+export const metadata = { title: "Sign in — Cap & Gown" };
+
+export default function LoginPage() {
+  return (
+    <main className="flex min-h-screen items-center justify-center p-8">
+      <LoginForm />
+    </main>
+  );
+}

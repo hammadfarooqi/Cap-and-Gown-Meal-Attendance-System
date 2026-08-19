@@ -193,23 +193,29 @@ test("4. the cache survives a restart", async ({ page, context }) => {
   await expect(page.getByTestId("name")).toHaveText("Bob Offline");
 });
 
-test.fixme(
-  "5. the app loads at all after a reload with the network off",
-  async ({ page, context }) => {
-    // KNOWN GAP, found 2026-08-17. IndexedDB holds everything needed to serve
-    // a meal, but the app shell itself is fetched over the network. Reload a
-    // tablet during an outage and the browser cannot even load the page —
-    // ERR_INTERNET_DISCONNECTED — so the warm cache is unreachable.
-    //
-    // The fix is a service worker caching the shell, which the spec's
-    // architecture diagram already implies by calling the station app a PWA.
-    // It is not built yet. Until it is, a tablet that reboots during a Wi-Fi
-    // outage is dead until the network returns.
-    await warmStation(page);
+test("5. the app loads at all after a reload with the network off", async ({
+  page,
+  context,
+}) => {
+  // The gap that prompted the service worker, found 2026-08-17. IndexedDB
+  // held everything needed to serve a meal, but the app shell was fetched
+  // over the network — so reloading a tablet during an outage showed a
+  // browser error and the warm cache was unreachable.
+  await warmStation(page);
 
-    await context.setOffline(true);
-    await page.reload();
+  // Wait for the worker to actually CONTROL the page. A worker that has
+  // registered but not yet taken over intercepts nothing, and the test would
+  // fail for the wrong reason.
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller), null, {
+    timeout: 15_000,
+  });
 
-    await expect(page.getByTestId("idle")).toBeVisible({ timeout: 15_000 });
-  },
-);
+  await context.setOffline(true);
+  await page.reload();
+
+  await expect(page.getByTestId("idle")).toBeVisible({ timeout: 15_000 });
+
+  // And it is genuinely working, not merely rendering.
+  await scanCard(page, PEOPLE[2].card);
+  await expect(page.getByTestId("name")).toHaveText("Carol Offline");
+});

@@ -19,10 +19,15 @@ export default defineConfig({
   workers: 1,
   use: { baseURL: `http://localhost:${PORT}` },
   webServer: {
-    command: `npm run dev -- --port ${PORT}`,
+    // A production build, not `next dev`. Turbopack regenerates chunk hashes
+    // on every dev compile, so a service worker caches one set of bundles and
+    // the next load asks for different filenames — the offline-reload test
+    // fails for a reason that cannot happen in production. Building also
+    // means these tests exercise what actually ships.
+    command: `npm run build && npm run start -- --port ${PORT}`,
     url: `http://localhost:${PORT}`,
     // Always start our own. See the note on PORT above.
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: 240_000,
   },
 });

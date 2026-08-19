@@ -31,7 +31,7 @@
 **Interfaces:**
 - Produces: `useServiceWorker(): void` — registers `/sw.js` at scope `/`, does nothing where service workers are unavailable.
 
-- [ ] **Step 1: Write the service worker**
+- [x] **Step 1: Write the service worker**
 
 Bundle filenames are content-hashed and unknown ahead of time, so the shell cannot be listed statically. Instead the worker caches **as it goes**: `install` seeds `/station`, and every successful same-origin GET afterwards is stored. One online load leaves the tablet fully armed.
 
@@ -49,11 +49,11 @@ navigation with no cache  → fall back to the cached /station shell
 
 `activate` deletes every cache whose name is not the current version, so old builds do not accumulate on a device that lives for four years.
 
-- [ ] **Step 2: Register it**
+- [x] **Step 2: Register it**
 
 A small hook, called from the station page. Guard on `"serviceWorker" in navigator` so a browser without support — or a test environment — is unaffected.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ```bash
 set -o pipefail && npm test && npm run build
@@ -70,15 +70,15 @@ git commit -m "feat: cache the app shell in a service worker"
 - Create: `public/icon.svg`, `public/icon-192.png`, `public/icon-512.png`
 - Modify: `app/layout.tsx` — manifest link and apple-touch-icon
 
-- [ ] **Step 1: Icons**
+- [x] **Step 1: Icons**
 
 A plain monogram. Rendered to PNG at 192 and 512, because iOS ignores SVG icons in a manifest and needs `apple-touch-icon`.
 
-- [ ] **Step 2: Manifest**
+- [x] **Step 2: Manifest**
 
 `start_url` is `/station`, `display` is `fullscreen`. Added to the iPad home screen, the app opens with no address bar — which also removes the pull-to-refresh gesture that triggers the whole problem.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ---
 
@@ -87,12 +87,29 @@ A plain monogram. Rendered to PNG at 192 and 512, because iOS ignores SVG icons 
 **Files:**
 - Modify: `e2e/offline.spec.ts`
 
-- [ ] **Step 1: Un-skip test 5**
+- [x] **Step 1: Un-skip test 5**
 
 Warm the station, go offline, reload, and assert the app reaches idle and can still check someone in. It must wait for the service worker to control the page before going offline — a worker that has registered but not yet taken control will not intercept anything, and the test would fail for the wrong reason.
 
-- [ ] **Step 2: Verify and commit**
+- [x] **Step 2: Verify and commit**
 
 ```bash
 set -o pipefail && npm test && npm run test:e2e && npm run build
 ```
+
+
+---
+
+## Executed 2026-08-17
+
+All three tasks complete. `e2e/offline.spec.ts` test 5 passes.
+
+**One thing the plan did not anticipate.** The test failed at first against
+`next dev`, and the reason was not the service worker. Turbopack regenerates
+chunk hashes on every dev compile, so the worker cached one set of bundle
+filenames and the reloaded HTML asked for a different set. Every chunk 404'd.
+
+That cannot happen in production, where content hashes are stable. The fix was
+to point Playwright's `webServer` at `npm run build && npm start` instead of
+`npm run dev` — which also means the whole e2e suite now exercises what
+actually ships. The full run still finishes in about sixteen seconds.

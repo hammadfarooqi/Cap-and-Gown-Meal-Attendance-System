@@ -6,6 +6,7 @@ import { api } from "@/lib/station/api";
 import { getDeviceToken } from "@/lib/station/session";
 import { StationScreen } from "./StationScreen";
 import { EnrollScreen } from "./EnrollScreen";
+import { useServiceWorker } from "./useServiceWorker";
 
 /**
  * The shell. It owns nothing but the two things that cannot be decided until
@@ -16,6 +17,9 @@ export default function StationPage() {
   const [store, setStore] = useState<StationStore | null>(null);
   const [deviceToken, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+
+  // Caches the app shell, so a reload during an outage still boots.
+  useServiceWorker();
 
   useEffect(() => {
     let live = true;

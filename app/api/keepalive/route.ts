@@ -4,25 +4,28 @@ import { serviceClient } from "@/lib/db/client";
 /**
  * What replaces the $25/month Supabase Pro upgrade.
  *
- * Supabase pauses a free project after 7 days without a request, and an
- * unpausing takes a couple of minutes and a dashboard login — which would
- * land on the business manager on the first morning back from a break. Any
- * real query resets the timer, so a scheduled ping every few days keeps the
- * project awake for nothing.
+ * IT MUST WRITE. The first version of this endpoint ran a SELECT, returned
+ * ok on every scheduled run, and the project paused anyway on 2026-08-25 —
+ * seven days after the last real write, having been read three times in
+ * between. Supabase's inactivity timer counts database activity, and a read
+ * served through PostgREST's pooled connections does not appear to reset it.
+ * Their own documentation names "an insert to a ping table" as the remedy.
  *
- * This is the only part of the system nobody will ever look at, and the only
- * part whose failure is silent until the database has already paused. It
- * returns a real status so the scheduled job fails loudly if the query does.
+ * If someone later "simplifies" this back to a read, or to a bare
+ * `return { ok: true }`, the database will pause over a break and the first
+ * scan back will fail. There are tests for both.
  */
 export async function GET() {
-  const { error } = await serviceClient()
-    .from("versions")
-    .select("resource")
-    .limit(1);
+  const { data, error } = await serviceClient()
+    .from("heartbeat")
+    .update({ last_ping: new Date().toISOString() })
+    .eq("id", 1)
+    .select("last_ping")
+    .single();
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, at: new Date().toISOString() });
+  return NextResponse.json({ ok: true, at: data.last_ping });
 }

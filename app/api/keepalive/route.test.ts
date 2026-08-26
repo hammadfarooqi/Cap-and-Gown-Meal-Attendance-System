@@ -5,40 +5,53 @@ vi.mock("@/lib/db/client", () => ({ serviceClient: () => ({ from }) }));
 
 const { GET } = await import("./route");
 
-/** Minimal stand-in for the part of the query builder this route uses. */
-const query = (result: { error: { message: string } | null }) => ({
-  select: () => ({ limit: () => Promise.resolve(result) }),
-});
+/** Stand-in for the chain this route uses: update → eq → select → single. */
+const writeChain = (result: { data?: unknown; error: { message: string } | null }) => {
+  const update = vi.fn((payload: { last_ping: string }) => {
+    void payload;
+    return { eq: () => ({ select: () => ({ single: () => Promise.resolve(result) }) }) };
+  });
+  return { update, handle: { update } };
+};
 
 beforeEach(() => from.mockReset());
 
 describe("GET /api/keepalive", () => {
-  it("queries a real table rather than returning a constant", async () => {
-    // The point of this endpoint is the query, not the response. A ping that
-    // does not touch Postgres would not reset Supabase's inactivity timer,
-    // and the project would pause anyway — silently, over a break, with
-    // nobody watching. This endpoint looks pointless enough that someone may
-    // later "simplify" it to `return { ok: true }`. This test stops that.
-    from.mockReturnValue(query({ error: null }));
+  it("WRITES rather than reads, which is the whole point", async () => {
+    // A SELECT here is what let the project pause on 2026-08-25: it ran on
+    // schedule, returned ok every time, and did not reset Supabase's
+    // inactivity timer. Only a write does.
+    const chain = writeChain({ data: { last_ping: "2026-08-26T03:00:00Z" }, error: null });
+    from.mockReturnValue(chain.handle);
 
     await GET();
 
-    expect(from).toHaveBeenCalledWith("versions");
+    expect(from).toHaveBeenCalledWith("heartbeat");
+    expect(chain.update).toHaveBeenCalledOnce();
   });
 
-  it("reports ok with a parseable timestamp", async () => {
-    from.mockReturnValue(query({ error: null }));
+  it("stamps the row with a fresh time", async () => {
+    const chain = writeChain({ data: { last_ping: "2026-08-26T03:00:00Z" }, error: null });
+    from.mockReturnValue(chain.handle);
+
+    await GET();
+
+    const [payload] = chain.update.mock.calls[0];
+    expect(new Date(payload.last_ping).getTime()).toBeGreaterThan(Date.now() - 10_000);
+  });
+
+  it("reports the time the write landed", async () => {
+    from.mockReturnValue(writeChain({ data: { last_ping: "2026-08-26T03:00:00Z" }, error: null }).handle);
 
     const res = await GET();
     expect(res.status).toBe(200);
 
     const body = await res.json();
-    expect(body.ok).toBe(true);
-    expect(new Date(body.at).getTime()).not.toBeNaN();
+    expect(body).toEqual({ ok: true, at: "2026-08-26T03:00:00Z" });
   });
 
-  it("fails loudly when the query fails, so the scheduled job goes red", async () => {
-    from.mockReturnValue(query({ error: { message: "connection refused" } }));
+  it("fails loudly when the write fails, so the scheduled job goes red", async () => {
+    from.mockReturnValue(writeChain({ error: { message: "connection refused" } }).handle);
 
     const res = await GET();
     expect(res.status).toBe(500);

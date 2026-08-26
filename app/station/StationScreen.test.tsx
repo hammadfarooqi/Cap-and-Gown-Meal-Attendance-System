@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { StationScreen } from "./StationScreen";
 import { openStore, type StationStore, type CachedPerson } from "@/lib/station/store";
 import type { StationApi } from "@/lib/station/api";
@@ -191,6 +192,57 @@ describe("StationScreen", () => {
     await new Promise((resolve) => setTimeout(resolve, HOLD_MS * 4));
 
     expect(screen.getByTestId("prompt")).toBeInTheDocument();
+  });
+
+  it("CHECKS SOMEONE IN FROM THE TYPED BOX, with no reader involved", async () => {
+    // The whole point: the club can serve a meal with a broken scanner, and
+    // the developer can test without hardware.
+    mount(await seeded(), fakeApi());
+    await screen.findByTestId("idle");
+
+    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "11111111111111");
+    await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+
+    expect(await screen.findByTestId("name")).toHaveTextContent("Alice Anderson");
+  });
+
+  it("records a typed entry as manual, not as a scan", async () => {
+    const store = await seeded();
+    mount(store, fakeApi({ sync: vi.fn().mockResolvedValue({ ok: false, status: null }) } as Partial<StationApi>));
+    await screen.findByTestId("idle");
+
+    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "11111111111111");
+    await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+    await screen.findByTestId("name");
+
+    const [item] = await store.peekOutbox();
+    expect(item.kind === "swipe" && item.entryMethod).toBe("manual");
+  });
+
+  it("does NOT fire a scan from ordinary typing in that box", async () => {
+    // The burst detector watches the whole document. Human typing must fall
+    // through it, or every keystroke in this box would be a card.
+    const store = await seeded();
+    const api = fakeApi();
+    mount(store, api);
+    await screen.findByTestId("idle");
+
+    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "22222222222222");
+
+    expect(screen.queryByTestId("name")).not.toBeInTheDocument();
+    expect(await store.outboxSize()).toBe(0);
+  });
+
+  it("clears the box after a successful entry", async () => {
+    mount(await seeded(), fakeApi());
+    await screen.findByTestId("idle");
+
+    const box = screen.getByLabelText("Enter an ID by hand");
+    await userEvent.type(box, "11111111111111");
+    await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+    await screen.findByTestId("name");
+
+    await waitFor(() => expect(screen.getByLabelText("Enter an ID by hand")).toHaveValue(""));
   });
 
   it("reports failure explicitly rather than showing a blank screen", async () => {

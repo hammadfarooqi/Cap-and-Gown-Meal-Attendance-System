@@ -12,6 +12,7 @@ import type { StationApi } from "@/lib/station/api";
 import { Avatar } from "./Avatar";
 import { MemberPicker } from "./MemberPicker";
 import { GuestForm } from "./GuestForm";
+import { ManualEntry } from "./ManualEntry";
 
 /** How long a result stays up before the screen returns to idle. */
 export const RESULT_HOLD_MS = 3000;
@@ -137,6 +138,14 @@ export function StationScreen({
     [store, api, deviceToken, hold, refreshLocalState],
   );
 
+  const submitManual = useCallback(
+    async (value: string) => {
+      await finish(await resolveScan(value, deps, "manual"));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [finish, store, api, deviceToken],
+  );
+
   // Card reader. Attached to the document, so nothing can steal focus from it.
   useEffect(() => {
     return onScan(async (card) => {
@@ -175,6 +184,8 @@ export function StationScreen({
               {unsynced} waiting to sync
             </p>
           )}
+
+          <ManualEntry onSubmit={submitManual} />
         </>
       )}
 

@@ -30,7 +30,7 @@ export function GuestForm({ clubs, onSubmit, onCancel }: GuestFormProps) {
       <h2 className="text-2xl font-semibold">Guest</h2>
 
       <label className="flex flex-col gap-1">
-        <span className="text-sm text-slate-600">netID</span>
+        <span className="text-sm text-ink-secondary">netID</span>
         <input
           autoFocus
           type="text"
@@ -41,23 +41,23 @@ export function GuestForm({ clubs, onSubmit, onCancel }: GuestFormProps) {
           autoCorrect="off"
           spellCheck={false}
           aria-label="Guest netID"
-          className="rounded-lg border border-slate-300 px-4 py-3 text-xl"
+          className="rounded-lg bg-surface px-4 py-3 text-xl text-ink ring-1 ring-line-strong"
         />
       </label>
 
       {touched && !valid && (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-danger">
           That does not look like a netID.
         </p>
       )}
 
       <label className="flex flex-col gap-1">
-        <span className="text-sm text-slate-600">Their club</span>
+        <span className="text-sm text-ink-secondary">Their club</span>
         <select
           value={club}
           onChange={(e) => setClub(e.target.value)}
           aria-label="Home club"
-          className="rounded-lg border border-slate-300 px-4 py-3 text-xl"
+          className="rounded-lg bg-surface px-4 py-3 text-xl text-ink ring-1 ring-line-strong"
         >
           {clubs.map((name) => (
             <option key={name} value={name}>
@@ -71,11 +71,11 @@ export function GuestForm({ clubs, onSubmit, onCancel }: GuestFormProps) {
         <button
           type="submit"
           disabled={!valid}
-          className="rounded-lg bg-slate-900 px-6 py-3 text-lg text-white disabled:opacity-40"
+          className="rounded-lg bg-oxblood-bright px-6 py-3 text-lg text-white transition-colors duration-150 hover:bg-oxblood disabled:opacity-40"
         >
           Check in
         </button>
-        <button type="button" onClick={onCancel} className="px-4 text-slate-500 underline">
+        <button type="button" onClick={onCancel} className="px-4 text-ink-muted underline">
           Cancel
         </button>
       </div>

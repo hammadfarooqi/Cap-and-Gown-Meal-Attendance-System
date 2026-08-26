@@ -162,25 +162,28 @@ export function StationScreen({
   }, []);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
+    <main className="station-dark flex min-h-screen flex-col items-center justify-center gap-6 bg-page p-8 text-ink">
       {screen.kind === "warming" && (
-        <p data-testid="warming" className="text-2xl text-slate-500">
+        <p data-testid="warming" className="text-2xl text-ink-muted">
           Preparing…
         </p>
       )}
 
       {screen.kind === "idle" && (
         <>
-          <p data-testid="idle" className="text-3xl text-slate-500">
+          <p data-testid="idle" className="text-4xl font-light text-ink-secondary">
             Scan your card
           </p>
           {mealName && (
-            <p data-testid="meal-name" className="text-lg uppercase tracking-widest text-slate-400">
+            <p
+              data-testid="meal-name"
+              className="text-sm uppercase tracking-[0.3em] text-ink-muted"
+            >
               {mealName}
             </p>
           )}
           {unsynced > 0 && (
-            <p data-testid="unsynced" className="text-sm text-slate-400">
+            <p data-testid="unsynced" className="text-sm text-ink-muted">
               {unsynced} waiting to sync
             </p>
           )}
@@ -192,24 +195,30 @@ export function StationScreen({
       {screen.kind === "checked-in" && (
         <>
           <Avatar name={screen.person.fullName} url={screen.url} />
-          <p data-testid="name" className="text-5xl font-semibold">
+          {/* The serif carries the member's name here and the club's name in
+              the dashboard header. Those two places only — everything else on
+              this screen is the interface sans. */}
+          <p data-testid="name" className="font-display text-6xl">
             {screen.person.fullName}
           </p>
-          <p data-testid="checked-in" className="text-2xl text-green-700">
+          <p
+            data-testid="checked-in"
+            className="text-xl uppercase tracking-[0.2em] text-ink-secondary"
+          >
             Checked in for {screen.mealPeriod}
           </p>
         </>
       )}
 
       {screen.kind === "no-meal" && (
-        <p data-testid="no-meal" className="text-3xl text-slate-600">
+        <p data-testid="no-meal" className="text-3xl text-ink-secondary">
           No meal is running right now
         </p>
       )}
 
       {screen.kind === "failed" && (
-        <p data-testid="failed" className="text-3xl text-red-700">
-          Could not reach the server — not counted
+        <p data-testid="failed" className="max-w-2xl text-center text-3xl text-ink">
+          Could not reach the server — <span className="text-ink-secondary">not counted</span>
         </p>
       )}
 
@@ -222,14 +231,14 @@ export function StationScreen({
             <button
               type="button"
               onClick={() => setScreen({ kind: "member-picker", card: screen.card })}
-              className="rounded-lg bg-slate-900 px-8 py-4 text-xl text-white"
+              className="rounded-xl bg-oxblood-bright px-8 py-4 text-xl text-white transition-colors duration-150 hover:bg-oxblood"
             >
               Member
             </button>
             <button
               type="button"
               onClick={() => setScreen({ kind: "guest-form", card: screen.card })}
-              className="rounded-lg border border-slate-400 px-8 py-4 text-xl"
+              className="rounded-xl px-8 py-4 text-xl ring-1 ring-line-strong transition-colors duration-150 hover:bg-oxblood-wash"
             >
               Guest
             </button>
@@ -237,7 +246,7 @@ export function StationScreen({
           <button
             type="button"
             onClick={() => setScreen({ kind: "idle" })}
-            className="text-slate-500 underline"
+            className="text-ink-muted underline"
           >
             Cancel
           </button>

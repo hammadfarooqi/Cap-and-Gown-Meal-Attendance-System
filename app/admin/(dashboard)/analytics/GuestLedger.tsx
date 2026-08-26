@@ -8,9 +8,9 @@ export function GuestLedger({ rows }: { rows: ClubRow[] }) {
   const totalVisits = rows.reduce((sum, r) => sum + r.visits, 0);
 
   return (
-    <section className="viz-root rounded-xl p-5" style={{ border: "1px solid var(--viz-border)" }}>
+    <section className="rounded-2xl bg-surface p-6 ring-1 ring-line">
       <h2 className="text-lg font-semibold">Guests by club</h2>
-      <p className="mb-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+      <p className="mb-3 text-sm text-ink-secondary">
         {totalVisits === 0
           ? "No guests in this range."
           : `${totalVisits} guest ${totalVisits === 1 ? "visit" : "visits"} in this range.`}
@@ -18,7 +18,7 @@ export function GuestLedger({ rows }: { rows: ClubRow[] }) {
 
       {rows.length > 0 && (
         <table className="w-full text-left text-sm">
-          <thead style={{ color: "var(--text-muted)" }}>
+          <thead className="text-ink-muted">
             <tr>
               <th scope="col" className="py-2 font-normal">Club</th>
               <th scope="col" className="py-2 font-normal">Visits</th>
@@ -27,7 +27,7 @@ export function GuestLedger({ rows }: { rows: ClubRow[] }) {
           </thead>
           <tbody style={{ fontVariantNumeric: "tabular-nums" }}>
             {rows.map((row) => (
-              <tr key={row.homeClub} style={{ borderTop: "1px solid var(--gridline)" }}>
+              <tr key={row.homeClub} className="border-t border-line">
                 <td className="py-2">
                   {row.homeClub === "None" ? "Not in a club" : row.homeClub}
                 </td>

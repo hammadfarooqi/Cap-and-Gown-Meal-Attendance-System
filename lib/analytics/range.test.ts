@@ -73,6 +73,10 @@ describe("presetRange", () => {
     expect(presetRange("today", at)).toEqual({ from: "2026-10-15", to: "2026-10-15" });
   });
 
+  it("three covers three days including today", () => {
+    expect(presetRange("three", at)).toEqual({ from: "2026-10-13", to: "2026-10-15" });
+  });
+
   it("week covers seven days including today", () => {
     expect(presetRange("week", at)).toEqual({ from: "2026-10-09", to: "2026-10-15" });
   });

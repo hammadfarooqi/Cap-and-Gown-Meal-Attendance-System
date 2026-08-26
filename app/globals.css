@@ -1,26 +1,110 @@
 @import "tailwindcss";
 
+/*
+ * Cap & Gown — design tokens.
+ *
+ * Colour and type are taken from the club's own site, capandgownclub.org.
+ * Its accent is hsl(348.4 49.2% 24.7%) — a deep oxblood — set against white,
+ * with IvyPresto Display for headings and Degular Text for body. Both faces
+ * are licensed Adobe fonts we cannot ship, so this uses the closest freely
+ * licensed pair on the same contrast axis: Playfair Display (a high-contrast
+ * serif) and Figtree (a warm humanist sans).
+ *
+ * This is a tool, not a brochure, so the sans carries ALL of the interface —
+ * labels, buttons, data, everything. The serif appears exactly twice, both
+ * times as identity rather than furniture: the club's name in the dashboard
+ * header, and a member's name on the station screen.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* The club's accent, and steps either side of it. */
+  --oxblood: #5e202c;
+  --oxblood-deep: #431722;
+  --oxblood-bright: #7c2b3a;
+  --oxblood-wash: #f6eef0;
+
+  /* Neutrals, tinted a few thousandths toward the oxblood hue. */
+  --page: #f8f6f6;
+  --surface: #fbfaf9;
+  --ink: #1a1416;
+  --ink-secondary: #574c4f;
+  --ink-muted: #8a7f82;
+  --line: #e6e0e1;
+  --line-strong: #d3c9cb;
+
+  --focus: #7c2b3a;
+
+  /* Status. Kept distinct from the meal series. */
+  --good: #1a7f47;
+  --danger: #b3261e;
+
+  /* Meal series. Validated with scripts/validate-palette.mjs against the
+     light surface: CVD ΔE 8.6, normal-vision ΔE 22.2, all above 3:1. */
+  --meal-breakfast: #8f7a00;
+  --meal-lunch: #b62e5c;
+  --meal-dinner: #3c4e8c;
+}
+
+/*
+ * The station runs on a wall-mounted tablet at the door of a panelled dining
+ * room in the evening. A dark surface with one brightly-lit face reads from
+ * across the room; a white screen glares. It is the same palette, stepped for
+ * the dark surface rather than inverted.
+ */
+.station-dark {
+  color-scheme: dark;
+  --page: #140d0f;
+  --surface: #1a1012;
+  --surface-raised: #241619;
+  --ink: #fbf7f7;
+  --ink-secondary: #d3c4c7;
+  --ink-muted: #9b8a8e;
+  --line: #332125;
+  --line-strong: #4a3036;
+  --oxblood-wash: #2a181d;
+
+  /* Validated against #1a1012: CVD ΔE 12.2, normal-vision ΔE 20.3. */
+  --meal-breakfast: #a89216;
+  --meal-lunch: #ce5580;
+  --meal-dinner: #6e86d6;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-oxblood: var(--oxblood);
+  --color-oxblood-deep: var(--oxblood-deep);
+  --color-oxblood-bright: var(--oxblood-bright);
+  --color-oxblood-wash: var(--oxblood-wash);
+  --color-good: var(--good);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-figtree);
+  --font-display: var(--font-playfair);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-figtree), system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* One focus treatment everywhere, so the keyboard path is never invisible. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

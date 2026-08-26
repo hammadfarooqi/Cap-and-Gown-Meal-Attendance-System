@@ -3,6 +3,13 @@
 import { useMemo, useState } from "react";
 import type { HistogramBucket } from "@/lib/analytics/queries";
 import { columnPath, Tooltip, TableView, EmptyState } from "./chart-parts";
+import { mealColorRole } from "@/lib/analytics/week";
+
+const COLOR: Record<string, string> = {
+  breakfast: "var(--meal-breakfast)",
+  lunch: "var(--meal-lunch)",
+  dinner: "var(--meal-dinner)",
+};
 
 const WIDTH = 420;
 const HEIGHT = 180;
@@ -51,7 +58,7 @@ function Facet({
         {/* Capitalise only the meal name. On the whole caption this also
             turns "busiest at" into "Busiest At". */}
         <span className="capitalize">{mealPeriod}</span>
-        <span className="ml-2 font-normal" style={{ color: "var(--text-secondary)" }}>
+        <span className="ml-2 font-normal text-ink-secondary">
           busiest at {clockLabel(peak.minuteOfDay)}
         </span>
       </figcaption>
@@ -65,14 +72,24 @@ function Facet({
         <line
           x1={PAD.left} x2={WIDTH - PAD.right}
           y1={PAD.top + plotHeight} y2={PAD.top + plotHeight}
-          stroke="var(--baseline)" strokeWidth={1}
+          stroke="var(--line-strong)" strokeWidth={1}
+        />
+        <line
+          x1={PAD.left} x2={WIDTH - PAD.right} y1={PAD.top} y2={PAD.top}
+          stroke="var(--line)" strokeWidth={1}
         />
         <text
           x={PAD.left - 6} y={PAD.top + 4} textAnchor="end"
-          fontSize={10} fill="var(--text-muted)"
+          fontSize={11} fill="var(--ink-muted)"
           style={{ fontVariantNumeric: "tabular-nums" }}
         >
           {yMax}
+        </text>
+        <text
+          x={PAD.left - 6} y={PAD.top + plotHeight + 4} textAnchor="end"
+          fontSize={11} fill="var(--ink-muted)"
+        >
+          0
         </text>
 
         {buckets.map((bucket) => {
@@ -82,11 +99,11 @@ function Facet({
 
           return (
             <g key={bucket.minuteOfDay}>
-              <path d={columnPath(x, y, barWidth, height, true)} fill="var(--series-members)" />
+              <path d={columnPath(x, y, barWidth, height, true)} fill={COLOR[mealColorRole(mealPeriod)]} />
               {bucket.minuteOfDay === peak.minuteOfDay && (
                 <text
                   x={x + barWidth / 2} y={y - 6}
-                  textAnchor="middle" fontSize={11} fill="var(--text-primary)"
+                  textAnchor="middle" fontSize={11} fill="var(--ink)"
                 >
                   {bucket.total}
                 </text>
@@ -101,12 +118,12 @@ function Facet({
           );
         })}
 
-        <text x={PAD.left} y={HEIGHT - PAD.bottom + 16} fontSize={10} fill="var(--text-muted)">
+        <text x={PAD.left} y={HEIGHT - PAD.bottom + 16} fontSize={10} fill="var(--ink-muted)">
           {clockLabel(first)}
         </text>
         <text
           x={WIDTH - PAD.right} y={HEIGHT - PAD.bottom + 16}
-          textAnchor="end" fontSize={10} fill="var(--text-muted)"
+          textAnchor="end" fontSize={10} fill="var(--ink-muted)"
         >
           {clockLabel(last)}
         </text>
@@ -118,7 +135,7 @@ function Facet({
           top={`calc(${(hover.y / HEIGHT) * 100}% + 1.5rem)`}
         >
           <div className="font-medium">{clockLabel(hover.bucket.minuteOfDay)}</div>
-          <div style={{ color: "var(--text-secondary)" }}>
+          <div className="text-ink-secondary">
             {hover.bucket.total} {hover.bucket.total === 1 ? "scan" : "scans"}
           </div>
         </Tooltip>
@@ -154,9 +171,9 @@ export function RushHistogram({ buckets }: { buckets: HistogramBucket[] }) {
   const yMax = Math.max(1, ...buckets.map((b) => b.total));
 
   return (
-    <section className="viz-root rounded-xl p-5" style={{ border: "1px solid var(--viz-border)" }}>
+    <section className="rounded-2xl bg-surface p-6 ring-1 ring-line">
       <h2 className="text-lg font-semibold">When the line is longest</h2>
-      <p className="mb-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+      <p className="mb-4 text-sm text-ink-secondary">
         Scans in five-minute buckets. Each meal is shown separately, on the same scale.
       </p>
 

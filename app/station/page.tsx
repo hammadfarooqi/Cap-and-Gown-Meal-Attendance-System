@@ -37,15 +37,15 @@ export default function StationPage() {
 
   if (!ready || !store) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
-        <p className="text-2xl text-slate-500">Starting…</p>
+      <main className="station-dark flex min-h-screen items-center justify-center bg-page text-ink">
+        <p className="text-2xl text-ink-muted">Starting…</p>
       </main>
     );
   }
 
   if (!deviceToken) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-8">
+      <main className="station-dark flex min-h-screen items-center justify-center bg-page p-8 text-ink">
         <EnrollScreen onEnrolled={() => setToken(getDeviceToken())} />
       </main>
     );

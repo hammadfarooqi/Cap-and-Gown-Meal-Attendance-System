@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { MealCount } from "@/lib/analytics/queries";
-import "./analytics/viz.css";
 
 const POLL_MS = 20_000;
 
@@ -10,13 +9,8 @@ type Payload = { currentMeal: string | null; counts: MealCount[]; servedToday: n
 
 function StatTile({ label, value }: { label: string; value: number }) {
   return (
-    <div
-      className="viz-root rounded-xl px-5 py-4"
-      style={{ border: "1px solid var(--viz-border)" }}
-    >
-      <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-        {label}
-      </div>
+    <div className="rounded-xl bg-surface px-5 py-4 ring-1 ring-line">
+      <div className="text-sm capitalize text-ink-secondary">{label}</div>
       <div className="text-3xl font-semibold">{value}</div>
     </div>
   );
@@ -39,24 +33,24 @@ export function TodayView() {
     return () => clearInterval(timer);
   }, [load]);
 
-  if (!data) return <p className="text-slate-500">Loading…</p>;
+  if (!data) return <p className="text-ink-muted">Loading…</p>;
 
   const current = data.counts.find((c) => c.mealPeriod === data.currentMeal);
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Today</h1>
+      <h1 className="font-display text-3xl">Today</h1>
 
       {data.currentMeal ? (
         <section className="flex flex-col gap-2">
-          <p className="text-sm uppercase tracking-widest text-slate-500" data-testid="current-meal">
+          <p className="text-sm uppercase tracking-[0.18em] text-ink-muted" data-testid="current-meal">
             {data.currentMeal} — happening now
           </p>
           {/* The hero figure. Exactly one per view. */}
           <p data-testid="hero-count" className="text-7xl font-semibold leading-none">
             {current?.total ?? 0}
           </p>
-          <p className="text-slate-600">
+          <p className="text-ink-secondary">
             {current?.members ?? 0} members · {current?.guests ?? 0} guests
           </p>
         </section>
@@ -67,7 +61,7 @@ export function TodayView() {
           <p data-testid="no-meal" className="text-2xl">
             No meal is running right now.
           </p>
-          <p className="text-slate-600">
+          <p className="text-ink-secondary">
             {data.servedToday === 0
               ? "Nobody has eaten yet today."
               : `${data.servedToday} people have eaten today.`}

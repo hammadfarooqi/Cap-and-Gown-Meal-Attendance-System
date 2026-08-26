@@ -247,6 +247,18 @@ describe("averagePerServedDay", () => {
     expect(lunch!.average).not.toBe(6 / 4);
   });
 
+  it("ORDERS SERVICES CHRONOLOGICALLY, not alphabetically", async () => {
+    // Alphabetical puts brunch above dinner above lunch, which reads as
+    // nonsense to anyone thinking about a day.
+    const averages = averagePerServedDay([
+      { mealDate: "2026-10-05", mealPeriod: "dinner", total: 5, members: 5, guests: 0 },
+      { mealDate: "2026-10-05", mealPeriod: "breakfast", total: 5, members: 5, guests: 0 },
+      { mealDate: "2026-10-05", mealPeriod: "lunch", total: 5, members: 5, guests: 0 },
+    ]);
+
+    expect(averages.map((a) => a.mealPeriod)).toEqual(["breakfast", "lunch", "dinner"]);
+  });
+
   it("returns zero rather than dividing by nothing", () => {
     expect(averagePerServedDay([])).toEqual([]);
   });

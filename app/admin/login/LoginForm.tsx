@@ -33,35 +33,35 @@ export function LoginForm() {
         router.refresh();
       }}
     >
-      <h1 className="text-3xl font-semibold">Cap &amp; Gown</h1>
-      <p className="text-slate-600">Sign in to the meal dashboard.</p>
+      <h1 className="font-display text-4xl">The Cap and Gown Club</h1>
+      <p className="text-ink-secondary">Sign in to the meal dashboard.</p>
 
       <label className="flex flex-col gap-1">
-        <span className="text-sm text-slate-600">Email</span>
+        <span className="text-sm text-ink-secondary">Email</span>
         <input
           type="email"
           autoComplete="username"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded-lg border border-slate-300 px-4 py-3 text-lg"
+          className="rounded-lg bg-surface px-4 py-3 text-lg ring-1 ring-line-strong"
         />
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-sm text-slate-600">Password</span>
+        <span className="text-sm text-ink-secondary">Password</span>
         <input
           type="password"
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="rounded-lg border border-slate-300 px-4 py-3 text-lg"
+          className="rounded-lg bg-surface px-4 py-3 text-lg ring-1 ring-line-strong"
         />
       </label>
 
       {failed && (
         // One message for every failure. Never "no such user" — that turns
         // this page into a way of finding out who is on the board.
-        <p role="alert" className="text-red-700">
+        <p role="alert" className="text-danger">
           Those details are not right.
         </p>
       )}
@@ -69,7 +69,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={busy}
-        className="rounded-lg bg-slate-900 px-6 py-3 text-lg text-white disabled:opacity-40"
+        className="rounded-lg bg-oxblood px-6 py-3 text-lg text-white transition-colors duration-150 hover:bg-oxblood-bright disabled:opacity-40"
       >
         {busy ? "Signing in…" : "Sign in"}
       </button>

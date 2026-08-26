@@ -37,12 +37,12 @@ export function ManualEntry({ onSubmit }: { onSubmit: (value: string) => void })
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}
-        className="rounded-lg border border-slate-300 px-4 py-2 text-lg"
+        className="rounded-lg bg-surface px-4 py-2 text-lg text-ink ring-1 ring-line-strong placeholder:text-ink-muted"
       />
       <button
         type="submit"
         disabled={!value.trim()}
-        className="rounded-lg border border-slate-400 px-4 py-2 disabled:opacity-40"
+        className="rounded-lg px-4 py-2 ring-1 ring-line-strong transition-colors duration-150 hover:bg-oxblood-wash disabled:opacity-40"
       >
         Enter
       </button>

@@ -68,6 +68,13 @@ export async function rushHistogram(
 }
 
 /** Every meal served today, in the club's timezone. */
+/** Chronological, not alphabetical. Shared with averagePerServedDay. */
+export function mealRank(meal: string): number {
+  const order = ["breakfast", "brunch", "lunch", "dinner"];
+  const i = order.indexOf(meal);
+  return i === -1 ? order.length : i;
+}
+
 export async function todayCounts(): Promise<MealCount[]> {
   const { data, error } = await serviceClient().rpc("today_count");
   if (error) throw error;
@@ -77,7 +84,7 @@ export async function todayCounts(): Promise<MealCount[]> {
     total: num(row.total),
     members: num(row.members),
     guests: num(row.guests),
-  }));
+  })).sort((a: MealCount, b: MealCount) => mealRank(a.mealPeriod) - mealRank(b.mealPeriod));
 }
 
 export async function guestsByClub(range: DateRange): Promise<ClubRow[]> {
@@ -135,5 +142,5 @@ export function averagePerServedDay(rows: HeadcountRow[]): { mealPeriod: string;
       mealPeriod,
       average: days.size === 0 ? 0 : Math.round((total / days.size) * 10) / 10,
     }))
-    .sort((a, b) => a.mealPeriod.localeCompare(b.mealPeriod));
+    .sort((a, b) => mealRank(a.mealPeriod) - mealRank(b.mealPeriod) || a.mealPeriod.localeCompare(b.mealPeriod));
 }

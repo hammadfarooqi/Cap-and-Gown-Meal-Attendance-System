@@ -18,9 +18,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { email } = await requireAdmin();
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-page">
       <Nav email={email} />
-      <div className="flex-1 p-6">{children}</div>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">{children}</main>
     </div>
   );
 }

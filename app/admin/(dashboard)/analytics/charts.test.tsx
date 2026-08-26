@@ -1,11 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HeadcountChart } from "./HeadcountChart";
+import { WeekChart } from "./WeekChart";
+import { AveragesPanel } from "./AveragesPanel";
+import { layOutWeek } from "@/lib/analytics/week";
 import { RushHistogram, clockLabel } from "./RushHistogram";
 import { GuestLedger } from "./GuestLedger";
 import { columnPath } from "./chart-parts";
 import type { HeadcountRow } from "@/lib/analytics/queries";
+
+// 2026-08-25 is a Tuesday; its week runs Sunday 08-23 to Saturday 08-29.
+const TUESDAY = new Date("2026-08-25T16:00:00Z");
 
 const ROWS: HeadcountRow[] = [
   { mealDate: "2026-10-05", mealPeriod: "lunch", total: 3, members: 2, guests: 1 },
@@ -46,47 +51,83 @@ describe("clockLabel", () => {
   });
 });
 
-describe("HeadcountChart", () => {
-  it("renders an empty state rather than a broken axis", () => {
-    render(<HeadcountChart rows={[]} />);
-    expect(screen.getByTestId("chart-empty")).toBeInTheDocument();
-  });
+describe("WeekChart", () => {
+  const week = (rows: HeadcountRow[]) => layOutWeek(rows, TUESDAY);
 
-  it("names both series in a legend, so identity is never colour alone", () => {
-    render(<HeadcountChart rows={ROWS} />);
-    expect(screen.getByText("Members")).toBeInTheDocument();
-    expect(screen.getByText("Guests")).toBeInTheDocument();
-  });
+  it("ALWAYS DRAWS SEVEN DAYS, Sunday to Saturday", async () => {
+    render(<WeekChart week={week([
+      { mealDate: "2026-08-25", mealPeriod: "lunch", total: 140, members: 120, guests: 20 },
+    ])} />);
 
-  it("sums the meals within a day", () => {
-    render(<HeadcountChart rows={ROWS} />);
-    // 2026-10-05 is lunch 3 plus dinner 1.
-    expect(screen.getByText("Show table")).toBeInTheDocument();
-  });
-
-  it("offers a table view carrying every number", async () => {
-    render(<HeadcountChart rows={ROWS} />);
     await userEvent.click(screen.getByText("Show table"));
-
     const table = screen.getByRole("table");
-    expect(table).toHaveTextContent("Oct 5");
-    expect(table).toHaveTextContent("Oct 6");
-    // Day totals: 4 and 9.
-    expect(table).toHaveTextContent("9");
+
+    for (const day of ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]) {
+      expect(table).toHaveTextContent(day);
+    }
   });
 
-  it("renders a single day without dividing by zero", () => {
-    render(<HeadcountChart rows={[ROWS[0]]} />);
-    expect(screen.queryByTestId("chart-empty")).not.toBeInTheDocument();
+  it("gives a weekday three services and a weekend two", async () => {
+    render(<WeekChart week={week([
+      { mealDate: "2026-08-25", mealPeriod: "lunch", total: 140, members: 120, guests: 20 },
+    ])} />);
+
+    await userEvent.click(screen.getByText("Show table"));
+    const rows = screen.getAllByRole("row");
+
+    // 7 days: 5 weekdays x 3 + 2 weekend days x 2 = 19 services, plus a header.
+    expect(rows).toHaveLength(20);
   });
 
-  it("survives a day where everybody was a guest", () => {
-    render(
-      <HeadcountChart
-        rows={[{ mealDate: "2026-10-05", mealPeriod: "lunch", total: 2, members: 0, guests: 2 }]}
-      />,
-    );
-    expect(screen.queryByTestId("chart-empty")).not.toBeInTheDocument();
+  it("NAMES BRUNCH AND LUNCH TOGETHER in the legend, because they share a colour", () => {
+    render(<WeekChart week={week([
+      { mealDate: "2026-08-25", mealPeriod: "lunch", total: 140, members: 120, guests: 20 },
+    ])} />);
+
+    expect(screen.getByText("Lunch / brunch")).toBeInTheDocument();
+  });
+
+  it("names all three services, so identity is never colour alone", () => {
+    render(<WeekChart week={week([
+      { mealDate: "2026-08-25", mealPeriod: "lunch", total: 140, members: 120, guests: 20 },
+    ])} />);
+
+    expect(screen.getByText("Breakfast")).toBeInTheDocument();
+    expect(screen.getByText("Dinner")).toBeInTheDocument();
+  });
+
+  it("says so plainly when the week has not started", () => {
+    render(<WeekChart week={week([])} />);
+    expect(screen.getByTestId("week-empty")).toBeInTheDocument();
+  });
+
+  it("draws a week with one service without dividing by zero", () => {
+    render(<WeekChart week={week([
+      { mealDate: "2026-08-23", mealPeriod: "brunch", total: 88, members: 80, guests: 8 },
+    ])} />);
+
+    expect(screen.queryByTestId("week-empty")).not.toBeInTheDocument();
+  });
+});
+
+describe("AveragesPanel", () => {
+  it("reports the average for each service", () => {
+    render(<AveragesPanel averages={[{ mealPeriod: "lunch", average: 137.5 }]} daysServed={4} />);
+
+    expect(screen.getByText("137.5")).toBeInTheDocument();
+    expect(screen.getByText(/across 4 days that served meals/)).toBeInTheDocument();
+  });
+
+  it("SAYS DAYS SERVED, not days elapsed", () => {
+    // Dividing by calendar days would silently deflate any window with a
+    // closed day in it.
+    render(<AveragesPanel averages={[{ mealPeriod: "lunch", average: 10 }]} daysServed={1} />);
+    expect(screen.getByText(/across 1 day that served meals/)).toBeInTheDocument();
+  });
+
+  it("says so plainly when nothing was served", () => {
+    render(<AveragesPanel averages={[]} daysServed={0} />);
+    expect(screen.getByText(/no meals were served in this window/i)).toBeInTheDocument();
   });
 });
 

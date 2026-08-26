@@ -60,7 +60,10 @@ test("an officer on the allowlist gets in", async ({ page }) => {
   await signIn(page, OFFICER);
 
   await expect(page).toHaveURL(/\/admin$/);
-  await expect(page.getByRole("navigation")).toContainText(OFFICER);
+  // The signed-in address lives in the header beside sign-out, not inside
+  // the section nav. Officers share iPads; seeing whose account is active
+  // prevents changes made under a colleague's name by accident.
+  await expect(page.getByRole("banner")).toContainText(OFFICER);
 });
 
 test("A VALID ACCOUNT THAT IS NOT ON THE ALLOWLIST IS KEPT OUT", async ({ page }) => {

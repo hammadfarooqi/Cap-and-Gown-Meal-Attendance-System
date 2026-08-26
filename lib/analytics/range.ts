@@ -5,7 +5,7 @@ export type DateRange = {
   to: string;
 };
 
-export type RangePreset = "today" | "week" | "month" | "semester";
+export type RangePreset = "today" | "three" | "week" | "month" | "semester";
 
 const CLUB_TIMEZONE = "America/New_York";
 
@@ -49,6 +49,8 @@ export function presetRange(preset: RangePreset, now: Date = new Date()): DateRa
   switch (preset) {
     case "today":
       return { from: today, to: today };
+    case "three":
+      return { from: shiftDays(today, -2), to: today };
     case "week":
       return { from: shiftDays(today, -6), to: today };
     case "month":

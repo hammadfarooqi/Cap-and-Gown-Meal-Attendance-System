@@ -34,7 +34,7 @@ export function columnPath(
 /** Identity never rests on colour alone: a swatch beside text in an ink token. */
 export function Legend({ items }: { items: { label: string; color: string }[] }) {
   return (
-    <ul className="flex flex-wrap gap-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+    <ul className="flex flex-wrap gap-4 text-sm text-ink-secondary">
       {items.map((item) => (
         <li key={item.label} className="flex items-center gap-2">
           <span
@@ -54,15 +54,8 @@ export function Tooltip({ left, top, children }: { left: string; top: string; ch
   return (
     <div
       role="tooltip"
-      className="pointer-events-none absolute z-10 rounded-lg px-3 py-2 text-sm shadow-lg"
-      style={{
-        left,
-        top,
-        transform: "translate(-50%, -110%)",
-        background: "var(--surface-1)",
-        color: "var(--text-primary)",
-        border: "1px solid var(--viz-border)",
-      }}
+      className="pointer-events-none absolute z-10 rounded-lg bg-surface px-3 py-2 text-sm text-ink shadow-lg ring-1 ring-line-strong"
+      style={{ left, top, transform: "translate(-50%, -110%)" }}
     >
       {children}
     </div>
@@ -95,8 +88,7 @@ export function TableView({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-controls={id}
-        className="text-sm underline"
-        style={{ color: "var(--text-secondary)" }}
+        className="text-sm underline text-ink-secondary"
       >
         {open ? "Hide table" : "Show table"}
       </button>
@@ -104,7 +96,7 @@ export function TableView({
       {open && (
         <table id={id} className="mt-2 w-full text-left text-sm">
           <caption className="sr-only">{caption}</caption>
-          <thead style={{ color: "var(--text-muted)" }}>
+          <thead className="text-ink-muted">
             <tr>
               {columns.map((column) => (
                 <th key={column} scope="col" className="py-1 pr-4 font-normal">
@@ -115,7 +107,7 @@ export function TableView({
           </thead>
           <tbody style={{ fontVariantNumeric: "tabular-nums" }}>
             {rows.map((row, index) => (
-              <tr key={index} style={{ borderTop: "1px solid var(--gridline)" }}>
+              <tr key={index} className="border-t border-line">
                 {row.map((cell, cellIndex) => (
                   <td key={cellIndex} className="py-1 pr-4">
                     {cell}
@@ -134,8 +126,7 @@ export function EmptyState({ children }: { children: ReactNode }) {
   return (
     <p
       data-testid="chart-empty"
-      className="py-12 text-center"
-      style={{ color: "var(--text-muted)" }}
+      className="py-12 text-center text-ink-muted"
     >
       {children}
     </p>

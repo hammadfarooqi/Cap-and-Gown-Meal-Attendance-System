@@ -27,7 +27,7 @@ export function Avatar({ name, url }: AvatarProps) {
         src={url}
         alt=""
         data-testid="avatar-photo"
-        className="h-64 w-64 rounded-full object-cover shadow-lg"
+        className="h-64 w-64 rounded-full object-cover shadow-2xl ring-1 ring-white/10"
       />
     );
   }
@@ -36,7 +36,7 @@ export function Avatar({ name, url }: AvatarProps) {
     <div
       data-testid="avatar-initials"
       aria-hidden="true"
-      className="flex h-64 w-64 items-center justify-center rounded-full bg-slate-200 text-6xl font-semibold text-slate-600 shadow-lg"
+      className="flex h-64 w-64 items-center justify-center rounded-full bg-oxblood-wash font-display text-6xl text-ink-secondary ring-1 ring-line-strong"
     >
       {initials(name)}
     </div>

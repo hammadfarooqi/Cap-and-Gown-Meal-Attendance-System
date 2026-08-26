@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { presetRange, type DateRange, type RangePreset } from "@/lib/analytics/range";
+import { currentWeek, layOutWeek, type DaySlot } from "@/lib/analytics/week";
 import type { ClubRow, HeadcountRow, HistogramBucket } from "@/lib/analytics/queries";
-import { RangePicker } from "./RangePicker";
-import { HeadcountChart } from "./HeadcountChart";
+import { WeekChart } from "./WeekChart";
+import { AveragesPanel } from "./AveragesPanel";
 import { RushHistogram } from "./RushHistogram";
 import { GuestLedger } from "./GuestLedger";
-import "./viz.css";
 
 type Payload = {
   headcount: HeadcountRow[];
@@ -16,59 +16,87 @@ type Payload = {
   averages: { mealPeriod: string; average: number }[];
 };
 
-export function AnalyticsView() {
-  const [preset, setPreset] = useState<RangePreset | "custom">("week");
-  const [range, setRange] = useState<DateRange>(() => presetRange("week"));
-  const [data, setData] = useState<Payload | null>(null);
-  const [loading, setLoading] = useState(true);
+const WINDOWS: { value: Extract<RangePreset, "today" | "three" | "week">; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "three", label: "Last 3 days" },
+  { value: "week", label: "Last 7 days" },
+];
 
-  const load = useCallback(async (next: DateRange) => {
-    setLoading(true);
-    const res = await fetch(`/api/admin/analytics?from=${next.from}&to=${next.to}`);
-    if (res.ok) setData(await res.json());
-    setLoading(false);
+async function fetchRange(range: DateRange): Promise<Payload | null> {
+  const res = await fetch(`/api/admin/analytics?from=${range.from}&to=${range.to}`);
+  return res.ok ? await res.json() : null;
+}
+
+export function AnalyticsView() {
+  const [week, setWeek] = useState<DaySlot[] | null>(null);
+  const [windowPreset, setWindowPreset] = useState<"today" | "three" | "week">("week");
+  const [windowData, setWindowData] = useState<Payload | null>(null);
+
+  // The week is a fixed frame. It has no range control, because a week that
+  // could be any span is not a week.
+  useEffect(() => {
+    void (async () => {
+      const data = await fetchRange(currentWeek());
+      if (data) setWeek(layOutWeek(data.headcount));
+    })();
+  }, []);
+
+  const loadWindow = useCallback(async (preset: "today" | "three" | "week") => {
+    setWindowData(await fetchRange(presetRange(preset)));
   }, []);
 
   useEffect(() => {
-    void load(range);
-  }, [range, load]);
+    void loadWindow(windowPreset);
+  }, [windowPreset, loadWindow]);
+
+  const daysServed = new Set(
+    (windowData?.headcount ?? []).map((row) => row.mealDate),
+  ).size;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <h1 className="text-2xl font-semibold">Analytics</h1>
-        <RangePicker
-          preset={preset}
-          range={range}
-          onPreset={(value) => {
-            setPreset(value);
-            setRange(presetRange(value));
-          }}
-          onCustom={(value) => {
-            setPreset("custom");
-            setRange(value);
-          }}
-        />
-      </div>
+    <div className="flex flex-col gap-10">
+      <section className="flex flex-col gap-6">
+        <h1 className="font-display text-3xl">Analytics</h1>
+        {week ? <WeekChart week={week} /> : <p className="text-ink-muted">Loading…</p>}
+      </section>
 
-      {data && data.averages.length > 0 && (
-        <p className="text-sm text-slate-600" data-testid="averages">
-          Average per meal served:{" "}
-          {data.averages.map((a) => `${a.mealPeriod} ${a.average}`).join(" · ")}
-        </p>
-      )}
+      <section className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-2xl">Recent</h2>
 
-      {loading && !data ? (
-        <p className="text-slate-500">Loading…</p>
-      ) : (
-        data && (
+          <div
+            role="group"
+            aria-label="Time window"
+            className="flex overflow-hidden rounded-lg ring-1 ring-line-strong"
+          >
+            {WINDOWS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={windowPreset === option.value}
+                onClick={() => setWindowPreset(option.value)}
+                className={`px-4 py-2 text-sm transition-colors duration-150 ${
+                  windowPreset === option.value
+                    ? "bg-oxblood text-white"
+                    : "bg-surface text-ink-secondary hover:bg-oxblood-wash"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {windowData ? (
           <>
-            <HeadcountChart rows={data.headcount} />
-            <RushHistogram buckets={data.histogram} />
-            <GuestLedger rows={data.clubs} />
+            <AveragesPanel averages={windowData.averages} daysServed={daysServed} />
+            <RushHistogram buckets={windowData.histogram} />
+            <GuestLedger rows={windowData.clubs} />
           </>
-        )
-      )}
+        ) : (
+          <p className="text-ink-muted">Loading…</p>
+        )}
+      </section>
     </div>
   );
 }

@@ -25,8 +25,8 @@ export function EnrollScreen({ onEnrolled }: { onEnrolled: () => void }) {
         else setFailed(true);
       }}
     >
-      <h1 className="text-3xl font-semibold">Set up this tablet</h1>
-      <p className="text-slate-600">
+      <h1 className="font-display text-4xl">Set up this tablet</h1>
+      <p className="text-ink-secondary">
         Enter the enrolment code from the admin dashboard.
       </p>
 
@@ -39,11 +39,11 @@ export function EnrollScreen({ onEnrolled }: { onEnrolled: () => void }) {
         autoCorrect="off"
         spellCheck={false}
         aria-label="Enrolment code"
-        className="rounded-lg border border-slate-300 px-4 py-3 text-center text-2xl tracking-[0.3em]"
+        className="rounded-lg bg-surface px-4 py-3 text-center text-2xl tracking-[0.3em] text-ink ring-1 ring-line-strong"
       />
 
       {failed && (
-        <p role="alert" className="text-red-700">
+        <p role="alert" className="text-danger">
           That code is not valid, or it has expired.
         </p>
       )}
@@ -51,7 +51,7 @@ export function EnrollScreen({ onEnrolled }: { onEnrolled: () => void }) {
       <button
         type="submit"
         disabled={busy || code.trim().length === 0}
-        className="rounded-lg bg-slate-900 px-6 py-3 text-lg text-white disabled:opacity-40"
+        className="rounded-lg bg-oxblood-bright px-6 py-3 text-lg text-white transition-colors duration-150 hover:bg-oxblood disabled:opacity-40"
       >
         {busy ? "Checking…" : "Set up"}
       </button>

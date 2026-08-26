@@ -40,7 +40,7 @@ export function DeviceList() {
             onChange={(e) => setName(e.target.value)}
             placeholder="Lane 1"
             aria-label="Tablet name"
-            className="rounded-lg border border-slate-300 px-3 py-2"
+            className="rounded-lg bg-surface px-3 py-2 ring-1 ring-line-strong"
           />
           <button
             type="button"
@@ -57,15 +57,15 @@ export function DeviceList() {
                 await load();
               }
             }}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-white disabled:opacity-40"
+            className="rounded-lg bg-oxblood px-4 py-2 text-white transition-colors duration-150 hover:bg-oxblood-bright disabled:opacity-40"
           >
             Get a code
           </button>
         </div>
 
         {code && (
-          <div className="rounded-lg border border-slate-300 p-4">
-            <p className="text-sm text-slate-600">
+          <div className="rounded-xl bg-oxblood-wash p-5 ring-1 ring-line">
+            <p className="text-sm text-ink-secondary">
               Open the scanner on the tablet and enter this. It expires in 15 minutes.
             </p>
             {/* Large enough to read across a room, because that is where the
@@ -80,7 +80,7 @@ export function DeviceList() {
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Tablets</h2>
         <table className="w-full text-left">
-          <thead className="text-sm text-slate-500">
+          <thead className="text-sm text-ink-muted">
             <tr>
               <th className="py-2">Name</th>
               <th className="py-2">Last seen</th>
@@ -89,14 +89,14 @@ export function DeviceList() {
           </thead>
           <tbody>
             {devices.map((device) => (
-              <tr key={device.id} className="border-t border-slate-200">
+              <tr key={device.id} className="border-t border-line">
                 <td className="py-3">
                   {device.name}
                   {device.revokedAt && (
-                    <span className="ml-2 text-sm text-red-700">revoked</span>
+                    <span className="ml-2 text-sm text-danger">revoked</span>
                   )}
                 </td>
-                <td className="py-3 text-slate-600">{lastSeen(device.lastSeenAt)}</td>
+                <td className="py-3 text-ink-secondary">{lastSeen(device.lastSeenAt)}</td>
                 <td className="py-3 text-right">
                   {!device.revokedAt && (
                     <button
@@ -105,7 +105,7 @@ export function DeviceList() {
                         await fetch(`/api/admin/devices/${device.id}`, { method: "DELETE" });
                         await load();
                       }}
-                      className="rounded-lg border border-slate-300 px-3 py-1 text-sm"
+                      className="rounded-lg px-3 py-1 text-sm ring-1 ring-line-strong transition-colors duration-150 hover:bg-oxblood-wash"
                     >
                       Revoke
                     </button>
@@ -115,7 +115,7 @@ export function DeviceList() {
             ))}
             {devices.length === 0 && (
               <tr>
-                <td colSpan={3} className="py-4 text-slate-500">
+                <td colSpan={3} className="py-4 text-ink-muted">
                   No tablets set up yet.
                 </td>
               </tr>

@@ -33,10 +33,15 @@ export type ExportRow = {
 /** Postgres returns bigint as a string once it exceeds the safe range. */
 const num = (value: unknown): number => Number(value ?? 0);
 
-export async function dailyHeadcount(range: DateRange): Promise<HeadcountRow[]> {
+/** `days` are Postgres day-of-week numbers (0 = Sunday); null means every day. */
+export async function dailyHeadcount(
+  range: DateRange,
+  days: number[] | null = null,
+): Promise<HeadcountRow[]> {
   const { data, error } = await serviceClient().rpc("daily_headcount", {
     from_date: range.from,
     to_date: range.to,
+    days,
   });
   if (error) throw error;
 
@@ -52,11 +57,13 @@ export async function dailyHeadcount(range: DateRange): Promise<HeadcountRow[]> 
 export async function rushHistogram(
   range: DateRange,
   bucketMinutes = 5,
+  days: number[] | null = null,
 ): Promise<HistogramBucket[]> {
   const { data, error } = await serviceClient().rpc("rush_histogram", {
     from_date: range.from,
     to_date: range.to,
     bucket_minutes: bucketMinutes,
+    days,
   });
   if (error) throw error;
 
@@ -87,10 +94,14 @@ export async function todayCounts(): Promise<MealCount[]> {
   })).sort((a: MealCount, b: MealCount) => mealRank(a.mealPeriod) - mealRank(b.mealPeriod));
 }
 
-export async function guestsByClub(range: DateRange): Promise<ClubRow[]> {
+export async function guestsByClub(
+  range: DateRange,
+  days: number[] | null = null,
+): Promise<ClubRow[]> {
   const { data, error } = await serviceClient().rpc("guests_by_club", {
     from_date: range.from,
     to_date: range.to,
+    days,
   });
   if (error) throw error;
 
@@ -143,4 +154,20 @@ export function averagePerServedDay(rows: HeadcountRow[]): { mealPeriod: string;
       average: days.size === 0 ? 0 : Math.round((total / days.size) * 10) / 10,
     }))
     .sort((a, b) => mealRank(a.mealPeriod) - mealRank(b.mealPeriod) || a.mealPeriod.localeCompare(b.mealPeriod));
+}
+
+/** Which semesters actually hold data, so the selector offers real choices. */
+export async function semestersWithData(): Promise<
+  { year: number; term: "fall" | "spring"; firstMeal: string; lastMeal: string; meals: number }[]
+> {
+  const { data, error } = await serviceClient().rpc("semesters_with_data");
+  if (error) throw error;
+
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    year: num(row.year),
+    term: String(row.term) as "fall" | "spring",
+    firstMeal: String(row.first_meal),
+    lastMeal: String(row.last_meal),
+    meals: num(row.meals),
+  }));
 }

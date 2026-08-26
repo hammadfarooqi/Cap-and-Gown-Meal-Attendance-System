@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { weekStart, currentWeek, layOutWeek, mealColorRole } from "./week";
+import { weekStart, currentWeek, layOutWeek, mealColorRole, weekFrom, stepWeek } from "./week";
 import type { HeadcountRow } from "./queries";
 
 // 2026-08-25 is a Tuesday. Its week runs Sunday 08-23 to Saturday 08-29.
@@ -109,5 +109,48 @@ describe("mealColorRole", () => {
 
   it("falls back to the lunch colour for an unknown service", () => {
     expect(mealColorRole("special-dinner-party")).toBe("lunch");
+  });
+});
+
+describe("stepWeek", () => {
+  const bounds = { earliest: "2026-08-01", latest: "2026-08-25" };
+
+  it("steps back a week", () => {
+    expect(stepWeek("2026-08-23", -1, bounds)).toBe("2026-08-16");
+  });
+
+  it("REFUSES TO STEP INTO THE FUTURE", () => {
+    // This week is the last one there is. Next week has not happened.
+    expect(stepWeek("2026-08-23", 1, bounds)).toBeNull();
+  });
+
+  it("steps forward when there is a later week to see", () => {
+    expect(stepWeek("2026-08-16", 1, bounds)).toBe("2026-08-23");
+  });
+
+  it("REFUSES TO STEP BEFORE TERM STARTED", () => {
+    // The semester is the outer scope; paging back out of it would show
+    // numbers from a term the reader did not select.
+    expect(stepWeek("2026-07-26", -1, bounds)).toBeNull();
+  });
+
+  it("allows the week containing the first day of term", () => {
+    // Term starts Saturday 1 August, whose week begins Sunday 26 July.
+    expect(stepWeek("2026-08-02", -1, bounds)).toBe("2026-07-26");
+  });
+});
+
+describe("weekFrom", () => {
+  it("spans the seven days beginning on that Sunday", () => {
+    expect(weekFrom("2026-08-23")).toEqual({ from: "2026-08-23", to: "2026-08-29" });
+  });
+});
+
+describe("layOutWeek with an explicit week", () => {
+  it("lays out a past week and marks every day as happened", () => {
+    const week = layOutWeek([], TUESDAY, "2026-08-16");
+
+    expect(week[0].date).toBe("2026-08-16");
+    expect(week.every((d) => d.hasHappened)).toBe(true);
   });
 });

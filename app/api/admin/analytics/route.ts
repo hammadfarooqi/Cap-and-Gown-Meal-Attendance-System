@@ -16,10 +16,21 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "from and to must be YYYY-MM-DD, from <= to" }, { status: 400 });
   }
 
+  // Day-of-week filter, e.g. "every Monday this semester". Absent means
+  // every day. Parsed strictly so nothing but 0-6 reaches SQL.
+  const daysParam = url.searchParams.get("days");
+  const days = daysParam
+    ? daysParam.split(",").map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+    : null;
+
+  if (daysParam && (days === null || days.length === 0)) {
+    return NextResponse.json({ error: "days must be 0-6" }, { status: 400 });
+  }
+
   const [headcount, histogram, clubs] = await Promise.all([
-    dailyHeadcount(range),
-    rushHistogram(range, 5),
-    guestsByClub(range),
+    dailyHeadcount(range, days),
+    rushHistogram(range, 5, days),
+    guestsByClub(range, days),
   ]);
 
   return NextResponse.json({

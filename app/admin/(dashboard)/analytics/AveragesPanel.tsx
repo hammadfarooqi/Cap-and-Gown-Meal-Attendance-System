@@ -23,9 +23,12 @@ export type Average = { mealPeriod: string; average: number };
 export function AveragesPanel({
   averages,
   daysServed,
+  unit = "day",
 }: {
   averages: Average[];
   daysServed: number;
+  /** What the average divides by — "day", "Monday", "weekday". */
+  unit?: string;
 }) {
   const peak = Math.max(1, ...averages.map((a) => a.average));
 
@@ -35,7 +38,7 @@ export function AveragesPanel({
       <p className="mb-5 text-sm text-ink-secondary">
         {daysServed === 0
           ? "No meals were served in this window."
-          : `Per service, across ${daysServed} ${daysServed === 1 ? "day" : "days"} that served meals.`}
+          : `Per service, across ${daysServed} ${daysServed === 1 ? unit : `${unit}s`} that served meals.`}
       </p>
 
       {averages.length > 0 && (

@@ -34,6 +34,28 @@ export function currentWeek(now: Date = new Date()): DateRange {
   return { from, to: shiftDays(from, 6) };
 }
 
+/** The week beginning on a given Sunday. */
+export function weekFrom(sunday: string): DateRange {
+  return { from: sunday, to: shiftDays(sunday, 6) };
+}
+
+/**
+ * Step a week backwards or forwards, refusing to leave the term.
+ *
+ * You cannot look at next week because it has not happened, and you cannot
+ * look before term started because the semester is the outer scope.
+ */
+export function stepWeek(
+  sunday: string,
+  direction: -1 | 1,
+  bounds: { earliest: string; latest: string },
+): string | null {
+  const next = shiftDays(sunday, direction * 7);
+  if (next < weekStart(bounds.earliest)) return null;
+  if (next > weekStart(bounds.latest)) return null;
+  return next;
+}
+
 /**
  * Lay a week out as seven fixed days, Sunday through Saturday, each carrying
  * its own meals.
@@ -46,9 +68,10 @@ export function currentWeek(now: Date = new Date()): DateRange {
 export function layOutWeek(
   rows: HeadcountRow[],
   now: Date = new Date(),
+  sunday?: string,
 ): DaySlot[] {
   const today = clubToday(now);
-  const start = weekStart(today);
+  const start = sunday ?? weekStart(today);
 
   const byDateAndMeal = new Map<string, HeadcountRow>();
   for (const row of rows) byDateAndMeal.set(`${row.mealDate}|${row.mealPeriod}`, row);

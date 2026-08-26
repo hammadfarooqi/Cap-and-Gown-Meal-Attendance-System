@@ -34,7 +34,24 @@ function ticks(max: number): number[] {
  *
  * Brunch wears the lunch colour: it is the same service on a different day.
  */
-export function WeekChart({ week }: { week: DaySlot[] }) {
+/** "Aug 23" rather than a bare 23, so a week reads without counting back. */
+function dayNumber(date: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
+    timeZone: "UTC", month: "short", day: "numeric",
+  });
+}
+
+export function WeekChart({
+  week,
+  title,
+  onPrevious,
+  onNext,
+}: {
+  week: DaySlot[];
+  title: string;
+  onPrevious: (() => void) | null;
+  onNext: (() => void) | null;
+}) {
   const [hover, setHover] = useState<
     { day: DaySlot; meal: DaySlot["meals"][number]; x: number; y: number } | null
   >(null);
@@ -52,8 +69,28 @@ export function WeekChart({ week }: { week: DaySlot[] }) {
 
   return (
     <section className="rounded-2xl bg-surface p-6 ring-1 ring-line">
-      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold">This week</h2>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onPrevious ?? undefined}
+            disabled={!onPrevious}
+            aria-label="Previous week"
+            className="rounded-md px-2 py-1 text-lg text-ink-secondary transition-colors duration-150 hover:bg-oxblood-wash disabled:opacity-25 disabled:hover:bg-transparent"
+          >
+            ‹
+          </button>
+          <h2 className="min-w-56 text-center text-lg font-semibold">{title}</h2>
+          <button
+            type="button"
+            onClick={onNext ?? undefined}
+            disabled={!onNext}
+            aria-label="Next week"
+            className="rounded-md px-2 py-1 text-lg text-ink-secondary transition-colors duration-150 hover:bg-oxblood-wash disabled:opacity-25 disabled:hover:bg-transparent"
+          >
+            ›
+          </button>
+        </div>
         <ul className="flex flex-wrap gap-4 text-sm text-ink-secondary">
           {(["breakfast", "lunch", "dinner"] as const).map((role) => (
             <li key={role} className="flex items-center gap-2">
@@ -73,7 +110,7 @@ export function WeekChart({ week }: { week: DaySlot[] }) {
 
       {nothingYet ? (
         <p data-testid="week-empty" className="py-16 text-center text-ink-muted">
-          No meals served yet this week.
+          No meals served this week.
         </p>
       ) : (
         <div className="relative">
@@ -146,7 +183,7 @@ export function WeekChart({ week }: { week: DaySlot[] }) {
                     x={slotStart + band / 2} y={HEIGHT - PAD.bottom + 36}
                     textAnchor="middle" fontSize={11} fill="var(--ink-muted)"
                   >
-                    {day.date.slice(8)}
+                    {dayNumber(day.date)}
                   </text>
                 </g>
               );

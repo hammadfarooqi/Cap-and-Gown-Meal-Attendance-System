@@ -109,6 +109,30 @@ describe("dailyHeadcount", () => {
     }
   });
 
+  it("FILTERS TO A SINGLE DAY OF THE WEEK", async () => {
+    // "Every Monday this semester" is a range AND a day filter; it cannot be
+    // expressed as a range alone.
+    const mondays = await dailyHeadcount({ from: "2026-10-01", to: "2026-10-31" }, [1]);
+    for (const row of mondays) {
+      expect(new Date(`${row.mealDate}T12:00:00Z`).getUTCDay()).toBe(1);
+    }
+  });
+
+  it("filters to weekdays only", async () => {
+    const weekdays = await dailyHeadcount(RANGE, [1, 2, 3, 4, 5]);
+    for (const row of weekdays) {
+      const day = new Date(`${row.mealDate}T12:00:00Z`).getUTCDay();
+      expect(day).toBeGreaterThanOrEqual(1);
+      expect(day).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("returns everything when no day filter is given", async () => {
+    const all = await dailyHeadcount(RANGE);
+    const filtered = await dailyHeadcount(RANGE, [1]);
+    expect(all.length).toBeGreaterThan(filtered.length);
+  });
+
   it("returns an empty list for a range with nothing in it", async () => {
     expect(await dailyHeadcount({ from: "2020-01-01", to: "2020-01-31" })).toEqual([]);
   });

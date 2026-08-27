@@ -80,6 +80,23 @@ export async function POST(req: Request) {
   }
 
   if (token) {
+    // One person, one card. This is the only place the officer message comes
+    // from: somebody typed a netID and that person is already bound, which
+    // means either a replacement card or the wrong netID. Neither is safe to
+    // guess at, so it stops here. Spec section 8.
+    const { data: heldByPerson } = await db
+      .from("credentials")
+      .select("token")
+      .eq("netid", netid)
+      .maybeSingle();
+
+    if (heldByPerson && heldByPerson.token !== token) {
+      return NextResponse.json(
+        { error: "person already has a card", boundTo: netid },
+        { status: 409 },
+      );
+    }
+
     const { error } = await db.from("credentials").insert({ token, netid });
     if (error && error.code !== UNIQUE_VIOLATION) {
       return NextResponse.json({ error: error.message }, { status: 500 });

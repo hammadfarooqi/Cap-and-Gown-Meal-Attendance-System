@@ -62,13 +62,22 @@ describe("POST /api/bind", () => {
     expect(await boundTo(TOKENS[0])).toBe("bind0001");
   });
 
-  it("binds a second card to the same member", async () => {
-    // A replacement card adds a credential; both must resolve.
+  it("REFUSES A SECOND CARD FOR SOMEBODY WHO ALREADY HAS ONE", async () => {
+    // Inverted from the original design, which added a row per card. Two
+    // credentials for one person splits their attendance across both, and
+    // only one of them is the card they are actually carrying. A replacement
+    // card is now an officer's problem — spec section 8.
     await POST(request({ token: TOKENS[0], netid: "bind0001" }, token));
-    await POST(request({ token: TOKENS[1], netid: "bind0001" }, token));
 
+    const res = await POST(request({ token: TOKENS[1], netid: "bind0001" }, token));
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/already has a card/i);
+
+    // Asserting the status is not enough: the point is that the card they
+    // already have keeps working and the new one was not written.
     expect(await boundTo(TOKENS[0])).toBe("bind0001");
-    expect(await boundTo(TOKENS[1])).toBe("bind0001");
+    expect(await boundTo(TOKENS[1])).toBeNull();
   });
 
   it("refuses a netid nobody has heard of, and writes nothing", async () => {
@@ -101,6 +110,20 @@ describe("POST /api/bind", () => {
     const res = await POST(request({ token: TOKENS[0], netid: "bind0002" }, token));
     expect(res.status).toBe(409);
     expect(await boundTo(TOKENS[0])).toBe("bind0001");
+  });
+
+  it("IS REFUSED BY THE DATABASE, not only by this route", async () => {
+    // The route's 409 exists to give the tablet a message it can show. The
+    // index is what makes the rule true when two lanes both believe somebody
+    // is unbound and neither has synced - which no application check can see.
+    await POST(request({ token: TOKENS[0], netid: "bind0001" }, token));
+
+    const { error } = await db
+      .from("credentials")
+      .insert({ token: TOKENS[1], netid: "bind0001" });
+
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("23505");
   });
 
   it("bumps the roster version so tablets learn about the new card", async () => {

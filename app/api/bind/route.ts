@@ -50,6 +50,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unknown netid" }, { status: 404 });
   }
 
+  // One person, one card. The unique index on credentials.netid enforces this
+  // underneath, but it would surface as a 500 — and the tablet needs an answer
+  // it can put on screen for the person standing there. Spec section 8.
+  const { data: heldByPerson } = await db
+    .from("credentials")
+    .select("token")
+    .eq("netid", netid)
+    .maybeSingle();
+
+  if (heldByPerson && !tokens.includes(heldByPerson.token)) {
+    return NextResponse.json(
+      { error: "person already has a card", boundTo: netid },
+      { status: 409 },
+    );
+  }
+
   // Anything already bound elsewhere blocks the whole request, so a swipe
   // never half-binds. Spec section 8: the server keeps its own answer.
   const { data: clashes } = await db

@@ -246,13 +246,40 @@ describe("StationScreen", () => {
   });
 
   it("reports failure explicitly rather than showing a blank screen", async () => {
+    // A server fault, not a dead token — re-enrolling would not help.
     mount(await seeded(), fakeApi({
-      resolve: vi.fn().mockResolvedValue({ ok: false, status: 401 }),
+      resolve: vi.fn().mockResolvedValue({ ok: false, status: 500 }),
     } as Partial<StationApi>));
     await screen.findByTestId("idle");
 
     await scan("99999999999999");
 
     expect(await screen.findByTestId("failed")).toHaveTextContent("not counted");
+  });
+
+  it("ASKS TO BE SET UP AGAIN when its token is dead, instead of blaming the network", async () => {
+    // Reported from live testing: a stale token made every swipe say "could
+    // not reach the server", sending staff to check Wi-Fi for a problem no
+    // network can fix.
+    const onUnenrolled = vi.fn();
+    const store = await seeded();
+
+    render(
+      <StationScreen
+        store={store}
+        api={fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 401 }) } as Partial<StationApi>)}
+        deviceToken="dead-token"
+        now={() => DURING_LUNCH}
+        holdMs={HOLD_MS}
+        skipWarm
+        onUnenrolled={onUnenrolled}
+      />,
+    );
+    await screen.findByTestId("idle");
+
+    await scan("99999999999999");
+
+    await waitFor(() => expect(onUnenrolled).toHaveBeenCalledOnce());
+    expect(screen.queryByTestId("failed")).not.toBeInTheDocument();
   });
 });

@@ -47,6 +47,17 @@ describe("Candidates", () => {
     expect(screen.getByTestId("candidates")).toHaveTextContent(/is this you/i);
   });
 
+  it("DOES NOT ASK \"IS THIS YOU?\" WHEN THERE IS NOBODY TO POINT AT", () => {
+    // Found by rendering it and looking, not by a test: with no tiles the
+    // screen read "Is this you?" above an empty space, which is a question
+    // about nobody. The person swiping cannot tell what happened.
+    render(<Candidates people={[]} {...noop} />);
+
+    const heading = screen.getByTestId("candidates");
+    expect(heading).not.toHaveTextContent(/is this you/i);
+    expect(heading).toHaveTextContent(/do not recognise/i);
+  });
+
   it("OFFERS THE GUEST ROUTE EVEN WITH NO TILES", async () => {
     // Zero candidates is the same screen, not a different one. A guest whose
     // name matches nobody lands here and must be able to keep moving.
@@ -56,6 +67,16 @@ describe("Candidates", () => {
     await userEvent.click(screen.getByRole("button", { name: /guest/i }));
 
     expect(onGuest).toHaveBeenCalled();
+  });
+
+  it("does not say \"No\" when there was nothing to say no to", () => {
+    // Same class as the heading: with no tiles, "No, I'm a guest" answers a
+    // question that was never asked.
+    render(<Candidates people={[]} {...noop} />);
+    expect(screen.getByRole("button", { name: /guest/i })).toHaveTextContent(/^I.m a guest$/);
+
+    render(<Candidates people={ONE} {...noop} />);
+    expect(screen.getAllByRole("button", { name: /guest/i })[1]).toHaveTextContent(/^No, I.m a guest$/);
   });
 
   it("tells a member who cannot see themselves where to go", () => {

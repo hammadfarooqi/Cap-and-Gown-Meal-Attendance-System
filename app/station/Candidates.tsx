@@ -51,8 +51,15 @@ export function Candidates({
 
   return (
     <div className="flex flex-col items-center gap-8">
+      {/* Three headings, not two. With no tiles, "Is this you?" is a question
+          about nobody — it rendered above an empty space and told the person
+          swiping nothing at all. */}
       <p data-testid="candidates" className="text-3xl">
-        {people.length > 1 ? "Which one is you?" : "Is this you?"}
+        {people.length === 0
+          ? "We do not recognise that card"
+          : people.length > 1
+            ? "Which one is you?"
+            : "Is this you?"}
       </p>
 
       {people.length > 0 && (
@@ -66,11 +73,12 @@ export function Candidates({
             >
               <Avatar name={person.fullName} url={null} size="tile" />
               <span className="font-display text-3xl">{person.fullName}</span>
-              {/* Load-bearing, not decoration. No headshots are loaded, and
-                  two members share a full name — so they share their initials
-                  too. The netID is the only thing here that separates them,
-                  and each of them knows their own. */}
-              <span className="text-lg text-ink-secondary">{person.netid}</span>
+              {/* Load-bearing, not decoration, and sized to say so. Rendered
+                  side by side, two members who share a full name produce two
+                  tiles reading the same initials and the same name; the netID
+                  is the only difference between them. It was the smallest,
+                  dimmest text on the tile until somebody looked at it. */}
+              <span className="text-2xl tracking-wide text-ink">{person.netid}</span>
             </button>
           ))}
         </div>
@@ -82,7 +90,7 @@ export function Candidates({
           onClick={onGuest}
           className="rounded-xl px-8 py-4 text-xl ring-1 ring-line-strong transition-colors duration-150 hover:bg-oxblood-wash"
         >
-          No, I&apos;m a guest
+          {people.length === 0 ? "I\u2019m a guest" : "No, I\u2019m a guest"}
         </button>
         <button type="button" onClick={onCancel} className="px-4 text-ink-muted underline">
           Cancel

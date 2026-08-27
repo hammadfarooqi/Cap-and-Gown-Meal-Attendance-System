@@ -87,20 +87,35 @@ document buffers keystrokes and fires a scan event, regardless of which element
 has focus. The app never fights for focus on a text input. A scan is atomic: a
 stray character on screen or a lost focus cannot corrupt it.
 
-A scan fires on Enter only when **all** of these hold:
+A scan fires on Enter only when **both** of these hold, with the values set
+from the measurement in A1:
 
 ```js
 const isScan =
-  buffer.length >= MIN_TOKEN_LEN &&        // starting value: 6
-  (now - burstStartedAt) <= MAX_BURST_MS;  // starting value: 200
-// plus: the buffer clears on any inter-key gap > GAP_MS (starting value: 50)
+  buffer.length >= 10 &&                                  // a real burst is 54
+  (now - burstStartedAt) <= buffer.length * 25;           // 6.3 ms/char measured
+// plus: the buffer clears on any inter-key gap > 50 ms   // 10 ms measured
 ```
+
+**The ceiling is per character, not per burst.** The first version capped the
+whole burst at 200 ms, chosen when the card was assumed to be a short barcode.
+A TigerCard takes 339 ms, so every real swipe would have been silently ignored
+— the door doing nothing all evening, with no error anywhere. Scaling by
+length removes the assumption about how much the reader sends.
+
+It is also a tighter constraint on the *average* pace than the gap alone: a
+burst where every gap sits just under 50 ms would pass the gap test but fail
+this one, which is what sustained fast typing looks like.
 
 Testing the burst — not merely testing for a non-empty buffer — is what stops a
 human typing `hf4888` by hand from firing a spurious scan of the last character
 they happened to type within the gap window. When the test fails, the handler
 does nothing and lets the event flow through, so the manual entry box submits
-normally. All three constants are tuned against real hardware on August 30.
+normally.
+
+`/station/reader-check` measures all of this against real hardware, and should
+be run again on the club's own tablets — a different USB stack may be slower
+than a laptop.
 
 **A3 — netID is the canonical identity.** Every person, member or guest, is one
 record keyed by netID. Card tokens are separate records that point at a netID,
@@ -137,7 +152,7 @@ is worse than the lost count.
 | O3 | Exact meal windows for every day of the week | Next business-manager call | Seed data only |
 | ~~O4~~ | ~~Actual member count~~ | **Closed 2026-08-16** — ~200 autumn, ~300 spring | — |
 | O5 | **Headshots.** The roster (names and netIDs) is in hand. The photos are not | Before 2026-08-30 — **highest slip risk** | The headshot feature only |
-| O6 | What form do the headshots arrive in — file format, resolution, and above all **how each file is named** | Next business-manager call | The photo import path |
+| ~~O6~~ | ~~How are the headshot files named?~~ | **No longer blocking 2026-08-26** — matched names import, the rest are assigned by hand in the dashboard | — |
 
 None of these block the build. O5 is the item most likely to slip, because it
 depends on a club officer in August.

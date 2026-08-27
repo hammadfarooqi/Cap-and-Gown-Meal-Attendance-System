@@ -2,8 +2,8 @@ import type { Versions } from "@/lib/api/envelope";
 import type { StationStore } from "./store";
 import type { StationApi } from "./api";
 
-/** Where headshots are served from. Plan 3's upload writes to the same path. */
-export const PHOTO_BASE_PATH = "/photos";
+/** Headshots come from a private bucket through an authenticated route. */
+export const PHOTO_BASE_PATH = "/api/photos";
 
 /**
  * Three tablets warming at once over club Wi-Fi must not open 300 parallel
@@ -13,14 +13,25 @@ export const PHOTO_CONCURRENCY = 6;
 
 export type PhotoFetcher = (path: string) => Promise<Blob | null>;
 
-export const defaultPhotoFetcher: PhotoFetcher = async (path) => {
-  try {
-    const res = await fetch(`${PHOTO_BASE_PATH}/${path}`);
-    return res.ok ? await res.blob() : null;
-  } catch {
-    return null;
-  }
-};
+/**
+ * The bucket is private, so this carries the tablet's device token. A public
+ * bucket would put every student's face behind a guessable URL.
+ *
+ * photoPath is stored as "<netid>.webp"; the route takes the netID.
+ */
+export function makePhotoFetcher(deviceToken: string): PhotoFetcher {
+  return async (path) => {
+    const netid = path.replace(/\.webp$/i, "");
+    try {
+      const res = await fetch(`${PHOTO_BASE_PATH}/${netid}`, {
+        headers: { authorization: `Bearer ${deviceToken}` },
+      });
+      return res.ok ? await res.blob() : null;
+    } catch {
+      return null;
+    }
+  };
+}
 
 export type BootstrapDeps = {
   store: StationStore;
@@ -53,7 +64,7 @@ async function pooled<T>(
  * in perfectly — the avatar falls back to their initials.
  */
 async function cachePhotos(deps: BootstrapDeps, paths: string[]): Promise<number> {
-  const fetchPhoto = deps.fetchPhoto ?? defaultPhotoFetcher;
+  const fetchPhoto = deps.fetchPhoto ?? makePhotoFetcher(deps.deviceToken);
 
   const missing: string[] = [];
   for (const path of paths) {

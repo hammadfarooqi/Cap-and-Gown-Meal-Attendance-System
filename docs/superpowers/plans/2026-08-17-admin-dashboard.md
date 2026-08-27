@@ -58,11 +58,11 @@ Task 2 (the shell) and Task 3 (device management) are inserted early because not
   - `isAdmin(userId: string): Promise<boolean>`
   - `listAdmins()`, `addAdmin(email, password, addedBy)`, `removeAdmin(userId)`, `resetAdminPassword(userId, password)`
 
-- [ ] **Step 1: The first admin problem**
+- [x] **Step 1: The first admin problem**
 
 There is no admin, so no admin can create one. `scripts/create-admin.ts` uses the service-role key to create a Supabase Auth user and its `admins` row in one go, run as `npm run create-admin -- <email> <password>`. Document it in the README as a one-time bootstrap.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 `lib/auth/admin.test.ts` must prove:
 
@@ -79,15 +79,15 @@ There is no admin, so no admin can create one. `scripts/create-admin.ts` uses th
 
 That last one is the important one. Enforce it in `removeAdmin`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `lib/supabase/server.ts` wraps `createServerClient` from `@supabase/ssr` with Next's cookie store. `requireAdmin()` reads the session, checks `admins`, and redirects to `/admin/login` on either failure — never distinguishing "not signed in" from "not allowed", so the login page cannot be used to enumerate who is an officer.
 
-- [ ] **Step 4: Login page**
+- [x] **Step 4: Login page**
 
 Email, password, submit. One error message for every failure: "Those details are not right." Never "no such user".
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```bash
 set -o pipefail && npm test && npm run build
@@ -107,15 +107,15 @@ git commit -m "feat: add admin authentication with an allowlist"
 - Consumes: `requireAdmin` (Task 1)
 - Produces: every `/admin/*` route is behind auth by virtue of the layout
 
-- [ ] **Step 1: Layout calls `requireAdmin`**
+- [x] **Step 1: Layout calls `requireAdmin`**
 
 One call in the layout protects every page beneath it. A page added later is protected by default rather than by remembering.
 
-- [ ] **Step 2: Navigation and sign-out**
+- [x] **Step 2: Navigation and sign-out**
 
 Links to the sections built in later tasks. Signed-in email visible, so an officer on a shared iPad can see whose account they are using.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 An end-to-end test asserts `/admin` redirects to `/admin/login` when signed out. That is the whole security boundary, and it deserves a test in a real browser.
 
@@ -133,7 +133,7 @@ Replaces the browser-console `localStorage` hack currently documented in the REA
 - Consumes: `createEnrollmentCode` (Plan 1), `requireAdmin`
 - Produces: `GET/POST /api/admin/devices`, `DELETE /api/admin/devices/[id]` (revoke)
 
-- [ ] **Step 1: Tests**
+- [x] **Step 1: Tests**
 
 | Test | Why |
 |---|---|
@@ -143,7 +143,7 @@ Replaces the browser-console `localStorage` hack currently documented in the REA
 | **revoking sets `revoked_at` rather than deleting the row** | swipes reference `station_id`; deleting would orphan them |
 | **a revoked device's token stops authenticating** | end-to-end through `authenticateDevice` |
 
-- [ ] **Step 2: Implement and commit**
+- [x] **Step 2: Implement and commit**
 
 The page shows each tablet's name, when it was last seen, and a revoke button. Creating one displays the code large enough to read across a room.
 
@@ -167,7 +167,7 @@ All the SQL, in one place, tested against real Postgres before any pixel is draw
   - `guestsByClub(range): Promise<{ homeClub: string; visits: number; people: number }[]>`
   - `swipeRows(range): Promise<ExportRow[]>`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Seed a known fortnight of swipes, then assert:
 
@@ -184,7 +184,7 @@ Seed a known fortnight of swipes, then assert:
 | guests group by `home_club` and count visits and distinct people | "how many Cottage visits" is a different question from "how many Cottage people" |
 | **days with no swipes are absent, not zero** | what makes deferring schedule exceptions safe: averages divide by days present |
 
-- [ ] **Step 2: Implement and commit**
+- [x] **Step 2: Implement and commit**
 
 Use Postgres date functions with an explicit `AT TIME ZONE 'America/New_York'`. Do not compute buckets in JavaScript after fetching rows — with a semester of data that is both slower and easier to get wrong.
 
@@ -201,29 +201,29 @@ Use Postgres date functions with an explicit `AT TIME ZONE 'America/New_York'`. 
 - Create: `app/api/admin/analytics/route.ts`
 - Modify: `package.json` — Recharts
 
-- [ ] **Step 1: Load the dataviz skill**
+- [x] **Step 1: Load the dataviz skill**
 
-- [ ] **Step 2: Headcount over time**
+- [x] **Step 2: Headcount over time**
 
 Daily totals across the range, members and guests distinguished. This is the number the kitchen orders against.
 
-- [ ] **Step 3: Rush-hour histogram**
+- [x] **Step 3: Rush-hour histogram**
 
 Scans bucketed by five minutes across a meal. **This is the chart that earns the project its keep** — it answers "when do we need the second server on the line", which nobody can currently answer at all.
 
-- [ ] **Step 4: Guest ledger by club**
+- [x] **Step 4: Guest ledger by club**
 
 A table, not a chart. Sortable by visits.
 
-- [ ] **Step 5: Range picker**
+- [x] **Step 5: Range picker**
 
 Today, this week, this month, this semester, and a custom range. Presets first — a business manager checking Tuesday's lunch should not have to operate a date picker.
 
-- [ ] **Step 6: Tests**
+- [x] **Step 6: Tests**
 
 Component tests assert the shapes that matter: an empty range renders an empty state rather than a broken axis; a range with one day renders; members and guests are visually distinguishable and labelled, not colour-only.
 
-- [ ] **Step 7: Verify and commit**
+- [x] **Step 7: Verify and commit**
 
 ---
 
@@ -233,11 +233,11 @@ Component tests assert the shapes that matter: an empty range renders an empty s
 - Create: `app/admin/page.tsx` — the landing page becomes the live count
 - Create: `app/api/admin/today/route.ts`
 
-- [ ] **Step 1: The number, large**
+- [x] **Step 1: The number, large**
 
 Total for the meal currently running, split into members and guests. Refreshes on a short poll — no websockets, no realtime subscription. A number that is thirty seconds stale is fine, and polling is one line that a future club member can understand.
 
-- [ ] **Step 2: Tests**
+- [x] **Step 2: Tests**
 
 | Test | Why |
 |---|---|
@@ -245,7 +245,7 @@ Total for the meal currently running, split into members and guests. Refreshes o
 | **shows a sensible empty state between meals** | the page is open all day; "0" with no explanation reads as broken |
 | the count reflects New York's today | |
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ---
 
@@ -258,7 +258,7 @@ The escape hatch. If a board member wants a number no chart shows, this answers 
 - Create: `app/api/admin/export/route.ts`
 - Create: `lib/analytics/csv.ts`, `lib/analytics/csv.test.ts`
 
-- [ ] **Step 1: Tests for the CSV writer**
+- [x] **Step 1: Tests for the CSV writer**
 
 | Test | Why |
 |---|---|
@@ -270,11 +270,11 @@ The escape hatch. If a board member wants a number no chart shows, this answers 
 
 Do not reach for a CSV library. The rules are three lines and a dependency here has to survive graduation.
 
-- [ ] **Step 2: The endpoint**
+- [x] **Step 2: The endpoint**
 
 One row per swipe: netID, name, member or guest at the time, home club, meal date, meal period, scan time. `Content-Disposition: attachment` with a filename carrying the range.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ---
 
@@ -290,7 +290,7 @@ One row per swipe: netID, name, member or guest at the time, home club, meal dat
   - `parseRosterCsv(text): { rows: RosterRow[]; errors: string[] }`
   - `diffRoster(incoming, current): { add: RosterRow[]; update: RosterRow[]; drop: string[] }`
 
-- [ ] **Step 1: Tests for the parser and the diff**
+- [x] **Step 1: Tests for the parser and the diff**
 
 | Test | Why it matters |
 |---|---|
@@ -303,21 +303,21 @@ One row per swipe: netID, name, member or guest at the time, home club, meal dat
 | **a person already `is_member = false` is not listed as a departure again** | otherwise every upload re-drops the same people |
 | **the diff never proposes deleting a row** | departures set `is_member = false` and `home_club = 'None'` |
 
-- [ ] **Step 2: Preview before apply**
+- [x] **Step 2: Preview before apply**
 
 Upload produces a diff on screen and nothing else. A second, explicit action applies it. **The apply endpoint takes the reviewed diff, not the file** — so what the officer confirmed is exactly what runs.
 
 An upload that would drop more than a third of current members shows an extra confirmation. A truncated file is the realistic accident, and the club has 200 people whose access it would silently end.
 
-- [ ] **Step 3: Manual editor**
+- [x] **Step 3: Manual editor**
 
 Add one member, correct a name, drop one person. Faster than a CSV round trip for a single typo, which is most of what happens in October.
 
-- [ ] **Step 4: Bump the roster version**
+- [x] **Step 4: Bump the roster version**
 
 Applying anything calls `bumpVersion("roster")` so tablets pick it up on their next sync.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ---
 
@@ -331,21 +331,21 @@ Applying anything calls `bumpVersion("roster")` so tablets pick it up on their n
 - Modify: `lib/station/bootstrap.ts` — send the device token when fetching a photo
 - Create: `supabase/migrations/0002_photo_storage.sql`
 
-- [ ] **Step 1: A private bucket, not a public one**
+- [x] **Step 1: A private bucket, not a public one**
 
 These are photographs of students, so the bucket is private and reads go through `/api/photos/[netid]`, which requires a valid device token. That matches the posture everywhere else: the anon key gets nothing.
 
 `lib/station/bootstrap.ts`'s `defaultPhotoFetcher` must therefore send the device token. It currently does not — that is a real change, not a detail.
 
-- [ ] **Step 2: Processing**
+- [x] **Step 2: Processing**
 
 Resize to 400×400, convert to WebP, **target about 40 KB**. At the spring peak of 300 members that keeps the whole set near 12 MB. The original assumption of 100 KB per photo would produce a 30 MB first-launch download over club Wi-Fi with three tablets pulling at once.
 
-- [ ] **Step 3: Matching files to people**
+- [x] **Step 3: Matching files to people**
 
 Files named `hf4888.jpg` import themselves. Anything else needs a manual match, so the page shows unmatched files and lets an officer assign them. Open question **O6** — how the club's export names its files — is still open, so this must handle both.
 
-- [ ] **Step 4: Tests**
+- [x] **Step 4: Tests**
 
 | Test | Why |
 |---|---|
@@ -355,7 +355,7 @@ Files named `hf4888.jpg` import themselves. Anything else needs a manual match, 
 | **uploading bumps the roster version** | tablets fetch new headshots on their next sync |
 | a non-image file is rejected | |
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ---
 
@@ -365,3 +365,25 @@ Files named `hf4888.jpg` import themselves. Anything else needs a manual match, 
 - **A real directory lookup** (open question O2). Guests still show as their netID.
 - **Realtime updates.** The live count polls. Websockets are more moving parts than a thirty-second-stale number justifies.
 - **Any second dashboard user role.** Every admin can do everything. A club board of five does not need permission tiers, and adding them later is a column.
+
+
+---
+
+## Executed. Two deviations worth recording.
+
+**Photo processing happens in the browser, not on the server.** The plan
+assumed server-side resizing. Doing it client-side keeps a heavy image library
+out of the dependency list and off a serverless function's memory budget, and
+a 300-photo upload sends about 12MB over club Wi-Fi instead of several
+hundred.
+
+**Filename matching is stricter than `isValidNetid`.** The looser rule matched
+"img" out of `IMG_4471.jpg` and "headshot" out of `headshot.png`. All 196 real
+netIDs contain digits, so the filename matcher requires one. `isValidNetid`
+stays permissive, because a guest typing an older letters-only netID has a
+human watching; a filename guess is silent, and the wrong guess puts somebody
+else's face on a student's check-in screen.
+
+Open question **O6** — how the club's export names its photo files — is
+therefore no longer blocking. Whatever the names are, the ones that match are
+imported and the rest are listed for an officer to assign by hand.

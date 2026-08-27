@@ -59,12 +59,24 @@ deadline in February**, not just the October one.
 These are decisions taken deliberately. Each one can be revisited, but the
 design leans on them.
 
-**A1 — Credential capture.** The card reader is a keyboard-wedge device. It
-types a token at high speed and ends with an Enter key. The software parses a
-unique token from that keystroke burst and maps it to a person. The token is
-**not** assumed to be stable across card replacement — see O1 — which is why
-`credentials` is a separate many-to-one table. The choice between barcode,
-magnetic stripe, and RFID is deferred to hardware testing.
+**A1 — Credential capture. CLOSED 2026-08-26.** A magnetic-stripe reader,
+acting as a keyboard wedge. A real TigerCard produces:
+
+```
+%601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?
+54 characters · 339 ms · 10 ms largest gap · exactly 1 Enter
+```
+
+Three things this settled:
+
+- **Neither number is the netID.** They are card numbers, so `credentials`
+  stays a separate many-to-one table. Collapsing it into `people` as the
+  "simpler" option would have meant a schema migration on the day.
+- **Track 2 is track 1 plus four digits** (`8700`), which has the shape of a
+  card issue suffix that changes on reissue. Untested, so nothing guesses:
+  both numbers are bound, and whichever survives keeps working.
+- **The stripe carries the holder's name**, which pre-fills the member picker
+  during first-day enrolment.
 
 One module converts a raw keystroke burst into a canonical token. Everything
 downstream sees only that token. When the hardware is chosen, one module and one
@@ -120,7 +132,7 @@ is worse than the lost count.
 
 | ID | Question | Closes by | Blocks |
 |---|---|---|---|
-| O1 | What token does the reader actually emit? Is it stable across card replacement? | 2026-08-30 hardware test | Whether `credentials` can collapse into `people` |
+| ~~O1~~ | ~~What token does the reader emit?~~ | **Closed 2026-08-26** — magstripe sends both tracks in one 54-character burst; neither number is the netID | `credentials` STAYS: many tokens to one person |
 | O2 | Which directory API resolves a netID to a name — TigerBook or Princeton LDAP? Does it work from a serverless function? | Before guest flow is built | Guest entry |
 | O3 | Exact meal windows for every day of the week | Next business-manager call | Seed data only |
 | ~~O4~~ | ~~Actual member count~~ | **Closed 2026-08-16** — ~200 autumn, ~300 spring | — |

@@ -8,12 +8,43 @@ type MemberPickerProps = {
   all: CachedPerson[];
   /** Members with no card yet — shown first, since that is the common case. */
   unbound: CachedPerson[];
+  /**
+   * The name the card's magnetic stripe carried, split into parts.
+   *
+   * A TigerCard says who the holder is. On the first day, when 196 people
+   * each need binding once, that turns "search a list of 196 during a rush"
+   * into "confirm the one name already on screen". Which part is the surname
+   * varies by issuer, so both are tried.
+   */
+  nameHint?: string[];
   onPick: (netid: string) => void;
   onCancel: () => void;
 };
 
-export function MemberPicker({ all, unbound, onPick, onCancel }: MemberPickerProps) {
+/** How many of the hint's parts a member's name matches. */
+function hintScore(person: CachedPerson, hint: string[]): number {
+  const name = person.fullName.toLowerCase();
+  return hint.filter((part) => part.length > 1 && name.includes(part.toLowerCase())).length;
+}
+
+export function MemberPicker({
+  all,
+  unbound,
+  nameHint = [],
+  onPick,
+  onCancel,
+}: MemberPickerProps) {
   const [query, setQuery] = useState("");
+
+  /** Members whose name matches what the card said. Usually exactly one. */
+  const suggested = useMemo(() => {
+    if (nameHint.length === 0) return [];
+    return all
+      .map((person) => ({ person, score: hintScore(person, nameHint) }))
+      .filter((entry) => entry.score === nameHint.filter((p) => p.length > 1).length)
+      .map((entry) => entry.person)
+      .slice(0, 5);
+  }, [all, nameHint]);
 
   const shown = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -34,6 +65,29 @@ export function MemberPicker({ all, unbound, onPick, onCancel }: MemberPickerPro
   return (
     <div className="flex w-full max-w-2xl flex-col gap-4">
       <h2 className="text-2xl font-semibold">Who is this?</h2>
+
+      {suggested.length > 0 && query.trim() === "" && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-ink-muted">
+            The card says {nameHint.join(" ")}
+          </p>
+          <ul className="flex flex-col gap-2">
+            {suggested.map((person) => (
+              <li key={person.netid}>
+                <button
+                  type="button"
+                  data-testid="suggested-member"
+                  onClick={() => onPick(person.netid)}
+                  className="w-full rounded-lg bg-oxblood-bright px-4 py-3 text-left text-lg text-white transition-colors duration-150 hover:bg-oxblood"
+                >
+                  {person.fullName}
+                  <span className="ml-2 text-sm text-white/70">{person.netid}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <input
         autoFocus

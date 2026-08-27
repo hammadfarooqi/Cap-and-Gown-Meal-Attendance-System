@@ -1,11 +1,18 @@
 import { deriveMeal } from "@/lib/meals/derive";
+import { parseCardSwipe } from "@/lib/scan/card";
 import type { StationStore, CachedPerson } from "./store";
 import type { StationApi } from "./api";
 
 export type ScanOutcome =
   | { kind: "no-meal" }
   | { kind: "checked-in"; person: CachedPerson; mealPeriod: string }
-  | { kind: "prompt"; card: string }
+  | {
+      kind: "prompt";
+      /** Every identifier the swipe carried; all of them get bound. */
+      cards: string[];
+      /** The name the stripe carried, if any — used to pre-fill the picker. */
+      nameParts: string[];
+    }
   | { kind: "failed" };
 
 export type ResolveDeps = {
@@ -64,7 +71,7 @@ export async function checkIn(
  *    abandoned later in createGuest. That is the one accepted loss.
  */
 export async function resolveScan(
-  card: string,
+  raw: string,
   deps: ResolveDeps,
   entryMethod: "scan" | "manual" = "scan",
 ): Promise<ScanOutcome> {
@@ -73,22 +80,31 @@ export async function resolveScan(
   const meal = deriveMeal(at, await deps.store.getSchedule());
   if (!meal) return { kind: "no-meal" };
 
-  // Case 1.
-  const cached = await deps.store.resolveToken(card);
-  if (cached) return checkIn(cached, meal.mealPeriod, at, entryMethod, deps);
+  // A magnetic stripe carries two numbers, either of which may be the one
+  // this person was bound under.
+  const swipe = parseCardSwipe(raw);
+  if (swipe.tokens.length === 0) return { kind: "failed" };
 
-  const result = await deps.api.resolve(deps.deviceToken, card);
+  // Case 1.
+  for (const token of swipe.tokens) {
+    const cached = await deps.store.resolveToken(token);
+    if (cached) return checkIn(cached, meal.mealPeriod, at, entryMethod, deps);
+  }
+
+  const result = await deps.api.resolve(deps.deviceToken, swipe.tokens);
 
   // Case 2.
   if (result.ok) {
     await deps.store.putPerson(result.data);
-    await deps.store.addCredential(card, result.data.netid);
+    for (const token of swipe.tokens) {
+      await deps.store.addCredential(token, result.data.netid);
+    }
     return checkIn(result.data, meal.mealPeriod, at, entryMethod, deps);
   }
 
   // Case 3 (404) and case 4 (no answer at all).
   if (result.status === 404 || result.status === null) {
-    return { kind: "prompt", card };
+    return { kind: "prompt", cards: swipe.tokens, nameParts: swipe.nameParts };
   }
 
   // A definite answer that is neither "here they are" nor "never seen it" —

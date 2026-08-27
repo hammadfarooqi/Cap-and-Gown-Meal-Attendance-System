@@ -22,9 +22,9 @@ type Screen =
   | { kind: "idle" }
   | { kind: "checked-in"; person: CachedPerson; mealPeriod: string; url: string | null }
   | { kind: "no-meal" }
-  | { kind: "prompt"; card: string }
-  | { kind: "member-picker"; card: string }
-  | { kind: "guest-form"; card: string }
+  | { kind: "prompt"; cards: string[]; nameParts: string[] }
+  | { kind: "member-picker"; cards: string[]; nameParts: string[] }
+  | { kind: "guest-form"; cards: string[] }
   | { kind: "failed" };
 
 export type StationScreenProps = {
@@ -129,7 +129,7 @@ export function StationScreen({
         void flushOutbox({ store, api, deviceToken }).catch(() => {});
       } else if (outcome.kind === "prompt") {
         if (holdTimer.current) clearTimeout(holdTimer.current);
-        setScreen({ kind: "prompt", card: outcome.card });
+        setScreen({ kind: "prompt", cards: outcome.cards, nameParts: outcome.nameParts });
       } else {
         hold({ kind: outcome.kind });
       }
@@ -230,14 +230,20 @@ export function StationScreen({
           <div className="flex gap-4">
             <button
               type="button"
-              onClick={() => setScreen({ kind: "member-picker", card: screen.card })}
+              onClick={() =>
+                setScreen({
+                  kind: "member-picker",
+                  cards: screen.cards,
+                  nameParts: screen.nameParts,
+                })
+              }
               className="rounded-xl bg-oxblood-bright px-8 py-4 text-xl text-white transition-colors duration-150 hover:bg-oxblood"
             >
               Member
             </button>
             <button
               type="button"
-              onClick={() => setScreen({ kind: "guest-form", card: screen.card })}
+              onClick={() => setScreen({ kind: "guest-form", cards: screen.cards })}
               className="rounded-xl px-8 py-4 text-xl ring-1 ring-line-strong transition-colors duration-150 hover:bg-oxblood-wash"
             >
               Guest
@@ -257,8 +263,9 @@ export function StationScreen({
         <MemberPicker
           all={members.all}
           unbound={members.unbound}
+          nameHint={screen.nameParts}
           onCancel={() => setScreen({ kind: "idle" })}
-          onPick={async (netid) => finish(await bindMember(screen.card, netid, deps))}
+          onPick={async (netid) => finish(await bindMember(screen.cards, netid, deps))}
         />
       )}
 
@@ -267,7 +274,7 @@ export function StationScreen({
           clubs={clubs}
           onCancel={() => setScreen({ kind: "idle" })}
           onSubmit={async (netid, club) =>
-            finish(await createGuest(screen.card, netid, club, deps))
+            finish(await createGuest(screen.cards, netid, club, deps))
           }
         />
       )}

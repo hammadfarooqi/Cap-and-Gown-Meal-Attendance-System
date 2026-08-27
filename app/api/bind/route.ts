@@ -23,10 +23,19 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => null);
-  const token = typeof body?.token === "string" ? body.token : null;
   const netid = typeof body?.netid === "string" ? body.netid : null;
-  if (!token || !netid) {
-    return NextResponse.json({ error: "token and netid required" }, { status: 400 });
+
+  // Both stripe numbers are bound at once. One of them is probably a card
+  // issue number that changes on reissue; binding both means whichever
+  // survives keeps working, and the other simply stops matching.
+  const tokens: string[] = Array.isArray(body?.tokens)
+    ? body.tokens.filter((t: unknown): t is string => typeof t === "string" && t.length > 0)
+    : typeof body?.token === "string"
+      ? [body.token]
+      : [];
+
+  if (tokens.length === 0 || !netid) {
+    return NextResponse.json({ error: "tokens and netid required" }, { status: 400 });
   }
 
   const db = serviceClient();
@@ -41,30 +50,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unknown netid" }, { status: 404 });
   }
 
-  const { error } = await db.from("credentials").insert({ token, netid });
-
-  if (!error) {
-    await bumpVersion("roster");
-    return NextResponse.json(await envelope({ token, netid }));
-  }
-
-  if (error.code !== UNIQUE_VIOLATION) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const { data: existing } = await db
+  // Anything already bound elsewhere blocks the whole request, so a swipe
+  // never half-binds. Spec section 8: the server keeps its own answer.
+  const { data: clashes } = await db
     .from("credentials")
-    .select("netid")
-    .eq("token", token)
-    .maybeSingle();
+    .select("token, netid")
+    .in("token", tokens);
 
-  if (existing?.netid === netid) {
-    // Same binding, sent twice. Re-sending is meant to be free.
-    return NextResponse.json(await envelope({ token, netid }));
+  const conflicting = (clashes ?? []).find((row) => row.netid !== netid);
+  if (conflicting) {
+    return NextResponse.json(
+      { error: "token already bound to a different person", boundTo: conflicting.netid },
+      { status: 409 },
+    );
   }
 
-  return NextResponse.json(
-    { error: "token already bound to a different person", boundTo: existing?.netid },
-    { status: 409 },
+  const fresh = tokens.filter(
+    (token) => !(clashes ?? []).some((row) => row.token === token),
   );
+
+  if (fresh.length > 0) {
+    const { error } = await db
+      .from("credentials")
+      .insert(fresh.map((token) => ({ token, netid })));
+
+    // A duplicate here means a concurrent identical bind, which is success.
+    if (error && error.code !== UNIQUE_VIOLATION) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    await bumpVersion("roster");
+  }
+
+  return NextResponse.json(await envelope({ tokens, netid }));
 }

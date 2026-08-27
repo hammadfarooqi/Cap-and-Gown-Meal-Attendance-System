@@ -170,7 +170,7 @@ describe("the station store", () => {
   it("queues outbox items in order and hands them back with ids", async () => {
     const store = await open();
     await store.enqueue({ kind: "swipe", netid: "aa1111", scannedAt: "2026-09-02T16:00:00Z", entryMethod: "scan" });
-    await store.enqueue({ kind: "binding", token: "CARD-9", netid: "aa1111" });
+    await store.enqueue({ kind: "binding", tokens: ["CARD-9"], netid: "aa1111" });
 
     const items = await store.peekOutbox();
     expect(items).toHaveLength(2);

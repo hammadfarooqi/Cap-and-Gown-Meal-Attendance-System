@@ -150,7 +150,7 @@ describe("resolveScan", () => {
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }) } as Partial<StationApi>);
 
       expect(await resolveScan("CARD-X", deps(store, api)))
-        .toEqual({ kind: "prompt", card: "CARD-X" });
+        .toEqual({ kind: "prompt", cards: ["CARD-X"], nameParts: [] });
       expect(await store.outboxSize()).toBe(0);
     });
   });
@@ -161,7 +161,7 @@ describe("resolveScan", () => {
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: null }) } as Partial<StationApi>);
 
       expect(await resolveScan("CARD-X", deps(store, api)))
-        .toEqual({ kind: "prompt", card: "CARD-X" });
+        .toEqual({ kind: "prompt", cards: ["CARD-X"], nameParts: [] });
     });
 
     it("reports failure on a definite refusal, rather than prompting into a void", async () => {
@@ -172,6 +172,68 @@ describe("resolveScan", () => {
 
       expect(await resolveScan("CARD-X", deps(store, api))).toEqual({ kind: "failed" });
       expect(await store.outboxSize()).toBe(0);
+    });
+  });
+
+  describe("a real magnetic stripe", () => {
+    const REAL_SWIPE = "%601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?";
+
+    it("MATCHES ON EITHER NUMBER THE STRIPE CARRIES", async () => {
+      // Track 2's number is track 1's plus a likely card-issue suffix. Bound
+      // under one of them, a swipe must still resolve.
+      const store = await seeded([{ token: "601621920380463", netid: "aa1111" }]);
+      const api = fakeApi();
+
+      const outcome = await resolveScan(REAL_SWIPE, deps(store, api));
+
+      expect(outcome.kind).toBe("checked-in");
+      expect(api.resolve).not.toHaveBeenCalled();
+    });
+
+    it("matches when bound under the longer number instead", async () => {
+      const store = await seeded([{ token: "6016219203804638700", netid: "aa1111" }]);
+
+      expect((await resolveScan(REAL_SWIPE, deps(store, fakeApi()))).kind).toBe("checked-in");
+    });
+
+    it("CARRIES THE NAME OFF THE CARD INTO THE PROMPT", async () => {
+      // 196 people each need binding once on the first day, and the card
+      // already says who they are.
+      const store = await seeded();
+      const api = fakeApi({
+        resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }),
+      } as Partial<StationApi>);
+
+      const outcome = await resolveScan(REAL_SWIPE, deps(store, api));
+
+      expect(outcome).toEqual({
+        kind: "prompt",
+        cards: ["6016219203804638700", "601621920380463"],
+        nameParts: ["HAMMAD", "FAROOQI"],
+      });
+    });
+
+    it("caches BOTH numbers once the server identifies the holder", async () => {
+      const store = await seeded();
+      const api = fakeApi({ resolve: vi.fn().mockResolvedValue(okResult(MEMBER)) } as Partial<StationApi>);
+
+      await resolveScan(REAL_SWIPE, deps(store, api));
+
+      expect((await store.resolveToken("601621920380463"))?.netid).toBe("aa1111");
+      expect((await store.resolveToken("6016219203804638700"))?.netid).toBe("aa1111");
+    });
+
+    it("sends every candidate to the server in one call", async () => {
+      const store = await seeded();
+      const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }) } as Partial<StationApi>);
+
+      await resolveScan(REAL_SWIPE, deps(store, api));
+
+      expect(api.resolve).toHaveBeenCalledOnce();
+      expect(api.resolve).toHaveBeenCalledWith(DEVICE_TOKEN, [
+        "6016219203804638700",
+        "601621920380463",
+      ]);
     });
   });
 

@@ -131,4 +131,30 @@ describe("onScan", () => {
 
     expect(handler).toHaveBeenCalledWith("123");
   });
+
+  it("ACCEPTS A REAL TIGERCARD SWIPE — 54 characters over 339 ms", async () => {
+    // Measured from real hardware on 2026-08-26. The original 200 ms
+    // whole-burst ceiling rejected this outright, which would have meant
+    // every swipe at the door doing nothing at all.
+    const handler = vi.fn();
+    detach = onScan(handler);
+
+    const card = "%601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?";
+    // 6.3 ms per character is what the reader actually sent.
+    await type(card, 6);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith(card);
+  });
+
+  it("still refuses a burst whose average pace looks human", async () => {
+    // Every gap under the 50 ms threshold, but sustained at 40 ms — far
+    // slower per character than any reader.
+    const handler = vi.fn();
+    detach = onScan(handler);
+
+    await type("123456789012345", 40);
+
+    expect(handler).not.toHaveBeenCalled();
+  });
 });

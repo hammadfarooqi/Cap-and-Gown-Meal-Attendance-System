@@ -29,8 +29,8 @@ are useful for understanding sequence, not for finding current work.
 
 | | |
 |---|---|
-| Commits | 53 |
-| Unit and integration tests | 427 |
+| Commits | 64 |
+| Unit and integration tests | 455 |
 | End-to-end tests | 33 |
 | Production | Live, roster loaded, healthy |
 | Scope | All four plans complete |
@@ -124,6 +124,23 @@ one set of bundles and the next load asks for different filenames.
 **Backticks inside a double-quoted commit message are executed by the shell.**
 Use a heredoc with a quoted delimiter.
 
+**A bare number is not a card.** `parseCardSwipe` only treats input as a card
+when it carries track sentinels (`%`, `;`, `?`); anything else is a typed
+identifier and takes the netID path. Fixtures across the unit and e2e suites
+were using strings like `"CARD-1"` and `"10000000000001"` as card tokens, and
+they silently stopped exercising the card path the moment typed entry got its
+own branch. Use a full stripe in any test that means to test a swipe.
+
+**Test data must not name a real member.** A netID is an email address and git
+history is permanent. Fixtures use invented people that carry the same shapes
+the real roster has — a duplicated full name, a surname shared four ways,
+accents, apostrophes, hyphenated and double surnames. Tests must also not
+depend on the current roster, so they still pass in two years.
+
+**`GuestForm.test.tsx` flakes under load.** A `userEvent` test with a 5-second
+timeout has taken 233 seconds inside a full run and then passed in 801ms alone.
+If it goes red on its own, re-run it before hunting a bug.
+
 ---
 
 ## Things that look wrong and are not
@@ -141,8 +158,16 @@ Do not "fix" these without reading the reasoning first.
 - **People are never deleted.** Leaving the club sets `is_member = false`,
   which keeps swipe history attached and lets a departed member still eat as
   somebody's guest.
-- **`credentials` maps many tokens to one person.** A TigerCard carries two
-  numbers and one of them probably changes on reissue. Both are bound.
+- **`credentials` maps ONE token to one person, enforced by a unique index.**
+  A TigerCard carries two numbers, and the second is the first plus a
+  four-digit suffix. Only the 15-digit base is stored, on the bet that the
+  base survives a reissue. This reverses the original design, which bound both
+  numbers so whichever survived kept working — the index is what makes the
+  rule true when two lanes both believe somebody is unbound.
+- **The card's printed name is never an identity, only a shortlist.** Two
+  members share a full name; eight surnames collide; a card carries the name
+  of any student, not only a member. The match produces candidate tiles and a
+  person always taps their own. See spec A8.
 - **`isValidNetid` is permissive; the photo filename matcher is not.**
   Validating a typed netID has a human watching. Guessing a person from a
   filename is silent, and a wrong guess puts the wrong face on a screen.
@@ -191,6 +216,8 @@ students' names and email addresses, and git history is permanent.
 1. **Live testing and iteration.** The owner is working through a walkthrough
    covering enrolment, a real card swipe, the offline drill, and every
    dashboard page. Expect feedback on wording and feel as much as on bugs.
+   The first-swipe flow changed on 2026-08-27 and has not been through a real
+   card yet — only a synthetic one shaped like the measurement.
 2. **Headshots** — open question O5. Not blocking: the station falls back to
    initials and every count is correct without them. The upload page handles
    whatever the files are called.
@@ -217,8 +244,18 @@ and check the club Wi-Fi for a captive portal or client isolation.
 
 ### After go-live
 
-- **O2, the directory lookup.** Guests currently show as their netID.
-  `lib/directory/lookup.ts` is the seam; swapping it is the whole change.
+- **An officer tool for card bindings. Deferred 2026-08-27, and the only
+  deferred item with a real deadline.** Nothing in the dashboard can view,
+  move, or remove a binding, so "please see an officer" currently ends with an
+  officer who fetches the person who maintains the system. That is acceptable
+  only because neither conflict can happen before cards have been bound at
+  all. It must exist well before the February roster jump, when ~100 new
+  members arrive with ~100 new cards.
+- **O2, the directory lookup. Narrowed 2026-08-27.** A guest who SWIPES is now
+  named from their card, so this only affects a guest entered by hand, who is
+  still stored as their netID. `lib/directory/lookup.ts` is the seam; swapping
+  it is the whole change. It has still never been shown to work from a Vercel
+  function, and that is the part to prove first.
 - **Schedule exceptions** for breaks — deliberately deferred, due before fall
   break in late October.
 - **The February roster jump.** The club goes from ~200 to ~300 when the

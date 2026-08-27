@@ -6,7 +6,9 @@ are working with works, the traps that have already cost time here, and the
 things that look wrong but are deliberate.
 
 Then `docs/specs/2026-08-16-meal-attendance-system-design.md` for the design
-and the reasoning behind it, and `README.md` for how to run it.
+and the reasoning behind it — amended by
+`docs/specs/2026-08-26-card-identity-and-first-swipe.md`, which changes how a
+card becomes a person — and `README.md` for how to run it.
 
 **Go-live is 2026-09-02.** This system serves meals to ~200 students daily and
 holds their names, photographs, and attendance records. Two habits matter more

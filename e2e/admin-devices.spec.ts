@@ -106,6 +106,9 @@ test("revoking a tablet stops its token working, and keeps the row", async ({ pa
   // ever set up, so an unscoped "Revoke" could belong to somebody else.
   const row = page.getByRole("row").filter({ hasText: LANE });
   await row.getByRole("button", { name: "Revoke" }).click();
+
+  // Revoked tablets drop out of the default view; the toggle brings them back.
+  await page.getByRole("button", { name: /show \d+ revoked/i }).click();
   await expect(row.getByText("revoked")).toBeVisible();
 
   const status = await page.evaluate(async (t) => {
@@ -161,6 +164,108 @@ test("A REVOKED TABLET ASKS TO BE SET UP AGAIN, rather than blaming the network"
   // Back to the enrolment screen, not a network error.
   await expect(page.getByLabel("Enrolment code")).toBeVisible({ timeout: 20000 });
   expect(await page.evaluate(() => localStorage.getItem("deviceToken"))).toBeNull();
+});
+
+test("REVOKED TABLETS ARE HIDDEN, so the list does not grow forever", async ({ page }) => {
+  // Over four years the club retires a good many tablets. A list that only
+  // grows makes the two that matter today harder to find.
+  await signIn(page);
+  await page.goto("/admin/devices");
+
+  await page.getByLabel("Tablet name").fill(LANE);
+  await page.getByRole("button", { name: "Get a code" }).click();
+  const code = (await page.getByTestId("enrollment-code").textContent())!.trim();
+  await page.evaluate(async (c) => {
+    await fetch("/api/devices/enroll", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: c }),
+    });
+  }, code);
+  await page.reload();
+
+  await page.getByRole("row", { name: new RegExp(LANE) })
+    .getByRole("button", { name: "Revoke" }).click();
+
+  // Gone from the default view, but findable.
+  await expect(page.getByRole("row", { name: new RegExp(LANE) })).toHaveCount(0);
+  await page.getByRole("button", { name: /show \d+ revoked/i }).click();
+  await expect(page.getByRole("row", { name: new RegExp(LANE) })).toBeVisible();
+});
+
+test("a revoked tablet that never served anyone can be removed for good", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/admin/devices");
+  page.on("dialog", (d) => d.accept());
+
+  await page.getByLabel("Tablet name").fill(LANE);
+  await page.getByRole("button", { name: "Get a code" }).click();
+  const code = (await page.getByTestId("enrollment-code").textContent())!.trim();
+  await page.evaluate(async (c) => {
+    await fetch("/api/devices/enroll", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: c }),
+    });
+  }, code);
+  await page.reload();
+
+  await page.getByRole("row", { name: new RegExp(LANE) })
+    .getByRole("button", { name: "Revoke" }).click();
+  await page.getByRole("button", { name: /show \d+ revoked/i }).click();
+  await page.getByRole("row", { name: new RegExp(LANE) })
+    .getByRole("button", { name: "Remove" }).click();
+
+  await expect(page.getByRole("row", { name: new RegExp(LANE) })).toHaveCount(0);
+
+  const { count } = await db
+    .from("devices").select("*", { count: "exact", head: true }).eq("name", LANE);
+  expect(count).toBe(0);
+});
+
+test("A TABLET THAT SERVED MEALS KEEPS ITS RECORD, even when revoked", async ({ page }) => {
+  // Swipes point at the device row. Which lane served somebody is worth more
+  // than a tidy list.
+  await signIn(page);
+  await page.goto("/admin/devices");
+  page.on("dialog", (d) => d.accept());
+
+  await page.getByLabel("Tablet name").fill(LANE);
+  await page.getByRole("button", { name: "Get a code" }).click();
+  const code = (await page.getByTestId("enrollment-code").textContent())!.trim();
+  const enrolled = await page.evaluate(async (c) => {
+    const res = await fetch("/api/devices/enroll", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: c }),
+    });
+    return res.json();
+  }, code);
+
+  await db.from("people").upsert({
+    netid: "devkeep1", full_name: "Device Keeper", is_member: true, home_club: "Cap & Gown",
+  });
+  await db.from("swipes").insert({
+    netid: "devkeep1", meal_date: "2026-08-20", meal_period: "lunch",
+    was_member: true, scanned_at: "2026-08-20T16:00:00Z",
+    station_id: enrolled.deviceId, entry_method: "scan",
+  });
+
+  await page.reload();
+  await page.getByRole("row", { name: new RegExp(LANE) })
+    .getByRole("button", { name: "Revoke" }).click();
+  await page.getByRole("button", { name: /show \d+ revoked/i }).click();
+  await page.getByRole("row", { name: new RegExp(LANE) })
+    .getByRole("button", { name: "Remove" }).click();
+
+  await expect(page.getByTestId("device-error")).toContainText("recorded 1 meals");
+
+  const { count } = await db
+    .from("devices").select("*", { count: "exact", head: true }).eq("name", LANE);
+  expect(count).toBe(1);
+
+  await db.from("swipes").delete().eq("netid", "devkeep1");
+  await db.from("people").delete().eq("netid", "devkeep1");
 });
 
 test("the device list is not reachable without signing in", async ({ page }) => {

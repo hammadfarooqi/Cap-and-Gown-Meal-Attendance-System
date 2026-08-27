@@ -19,6 +19,8 @@ export function DeviceList() {
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [name, setName] = useState("");
   const [code, setCode] = useState<string | null>(null);
+  const [showRevoked, setShowRevoked] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     const res = await fetch("/api/admin/devices");
@@ -28,6 +30,10 @@ export function DeviceList() {
   useEffect(() => {
     void load();
   }, []);
+
+  const active = devices.filter((d) => !d.revokedAt);
+  const revoked = devices.filter((d) => d.revokedAt);
+  const shown = showRevoked ? [...active, ...revoked] : active;
 
   return (
     <div className="flex flex-col gap-8">
@@ -78,7 +84,29 @@ export function DeviceList() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Tablets</h2>
+        {/* Revoked tablets are hidden by default. Over four years the club
+            will retire a good many, and a list that only grows makes the two
+            that matter today harder to find. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">
+            {active.length} in use
+          </h2>
+          {revoked.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowRevoked(!showRevoked)}
+              className="text-sm text-ink-secondary underline"
+            >
+              {showRevoked ? "Hide" : "Show"} {revoked.length} revoked
+            </button>
+          )}
+        </div>
+
+        {error && (
+          <p role="alert" data-testid="device-error" className="text-danger">
+            {error}
+          </p>
+        )}
         <table className="w-full text-left">
           <thead className="text-sm text-ink-muted">
             <tr>
@@ -88,35 +116,48 @@ export function DeviceList() {
             </tr>
           </thead>
           <tbody>
-            {devices.map((device) => (
+            {shown.map((device) => (
               <tr key={device.id} className="border-t border-line">
                 <td className="py-3">
-                  {device.name}
+                  <span>{device.name}</span>
                   {device.revokedAt && (
-                    <span className="ml-2 text-sm text-danger">revoked</span>
+                    <span className="ml-2 rounded bg-oxblood-wash px-2 py-0.5 text-xs text-ink-secondary">
+                      revoked
+                    </span>
                   )}
                 </td>
                 <td className="py-3 text-ink-secondary">{lastSeen(device.lastSeenAt)}</td>
                 <td className="py-3 text-right">
-                  {!device.revokedAt && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await fetch(`/api/admin/devices/${device.id}`, { method: "DELETE" });
-                        await load();
-                      }}
-                      className="rounded-lg px-3 py-1 text-sm ring-1 ring-line-strong transition-colors duration-150 hover:bg-oxblood-wash"
-                    >
-                      Revoke
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setError(null);
+                      const permanent = Boolean(device.revokedAt);
+
+                      if (permanent && !window.confirm(`Remove "${device.name}" from this list?`)) {
+                        return;
+                      }
+
+                      const res = await fetch(
+                        `/api/admin/devices/${device.id}${permanent ? "?permanent=true" : ""}`,
+                        { method: "DELETE" },
+                      );
+                      if (!res.ok) setError((await res.json()).error);
+                      await load();
+                    }}
+                    className="rounded-lg px-3 py-1 text-sm ring-1 ring-line-strong transition-colors duration-150 hover:bg-oxblood-wash"
+                  >
+                    {device.revokedAt ? "Remove" : "Revoke"}
+                  </button>
                 </td>
               </tr>
             ))}
-            {devices.length === 0 && (
+            {shown.length === 0 && (
               <tr>
                 <td colSpan={3} className="py-4 text-ink-muted">
-                  No tablets set up yet.
+                  {devices.length === 0
+                    ? "No tablets set up yet."
+                    : "No tablets in use. Set one up above."}
                 </td>
               </tr>
             )}

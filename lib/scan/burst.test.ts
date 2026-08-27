@@ -147,12 +147,46 @@ describe("onScan", () => {
     expect(handler).toHaveBeenCalledWith(card);
   });
 
-  it("still refuses a burst whose average pace looks human", async () => {
-    // Every gap under the 50 ms threshold, but sustained at 40 ms — far
-    // slower per character than any reader.
+  it("accepts the WORST of nine measured swipes, not just the average", async () => {
+    // 342 ms across 54 characters, with a 16 ms gap somewhere in it.
     const handler = vi.fn();
     detach = onScan(handler);
 
+    const card = "%601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?";
+    for (const [i, ch] of [...card].entries()) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: ch }));
+      // One deliberate hiccup, the largest ever observed.
+      await new Promise((r) => setTimeout(r, i === 20 ? 16 : 6));
+    }
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("SURVIVES A HICCUP that would have split the burst before", async () => {
+    // The gap check is destructive — one gap over the threshold and the swipe
+    // silently does nothing. A tablet has more running than a laptop, so the
+    // threshold sits five times above the worst measured rather than tight
+    // against it.
+    const handler = vi.fn();
+    detach = onScan(handler);
+
+    const card = "1234567890123456789012";
+    for (const [i, ch] of [...card].entries()) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: ch }));
+      await new Promise((r) => setTimeout(r, i === 10 ? 60 : 4));
+    }
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("still refuses a burst whose average pace looks human", async () => {
+    const handler = vi.fn();
+    detach = onScan(handler);
+
+    // Every gap under the 80 ms threshold, but averaging 40 ms per character
+    // — far slower than any reader, and the pace check catches it.
     await type("123456789012345", 40);
 
     expect(handler).not.toHaveBeenCalled();

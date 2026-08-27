@@ -64,7 +64,11 @@ acting as a keyboard wedge. A real TigerCard produces:
 
 ```
 %601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?
-54 characters · 339 ms · 10 ms largest gap · exactly 1 Enter
+
+Nine swipes, 2026-08-26:
+  54 characters every time · exactly 1 Enter every time
+  total time  337-342 ms  (1.5% spread)
+  largest gap    9-16 ms  (78% spread)
 ```
 
 Three things this settled:
@@ -93,9 +97,21 @@ from the measurement in A1:
 ```js
 const isScan =
   buffer.length >= 10 &&                                  // a real burst is 54
-  (now - burstStartedAt) <= buffer.length * 25;           // 6.3 ms/char measured
-// plus: the buffer clears on any inter-key gap > 50 ms   // 10 ms measured
+  (now - burstStartedAt) <= buffer.length * 25;           // 6.33 ms/char worst
+// plus: the buffer clears on any inter-key gap > 80 ms   // 16 ms worst
 ```
+
+**The two checks are tuned differently because they do different jobs.**
+
+The pace check rejects a human: nobody sustains 25 ms per keystroke over ten
+characters, and the fastest typists sit near 100 ms. It is also the stable
+measurement — 1.5% spread across nine swipes — so it can sit close.
+
+The gap check throws away a stray keypress and survives a hiccup mid-swipe. It
+is the variable measurement — 78% spread — and it is **destructive**: one gap
+over the threshold splits a burst and the swipe silently does nothing. So it
+sits at five times the worst observed rather than tight against it. Widening it
+does not admit a typist, because the pace check catches that independently.
 
 **The ceiling is per character, not per burst.** The first version capped the
 whole burst at 200 ms, chosen when the card was assumed to be a short barcode.

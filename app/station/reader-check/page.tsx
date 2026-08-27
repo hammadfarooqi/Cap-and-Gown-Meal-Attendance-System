@@ -2,11 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import { parseCardSwipe } from "@/lib/scan/card";
+import { BURST_DEFAULTS } from "@/lib/scan/burst";
+
+/** Exactly what the burst detector would decide about this capture. */
+function accepted(capture: Capture): boolean {
+  return (
+    capture.chars >= BURST_DEFAULTS.minTokenLength &&
+    capture.msPerChar <= BURST_DEFAULTS.maxMsPerChar &&
+    capture.maxGapMs <= BURST_DEFAULTS.gapMs &&
+    capture.enterCount === 1
+  );
+}
 
 type Capture = {
   raw: string;
   chars: number;
   totalMs: number;
+  msPerChar: number;
   maxGapMs: number;
   endedWithEnter: boolean;
   enterCount: number;
@@ -37,6 +49,7 @@ export default function ReaderCheckPage() {
           raw: b.text,
           chars: b.text.length,
           totalMs: Math.round(b.lastAt - b.startedAt),
+          msPerChar: Math.round(((b.lastAt - b.startedAt) / Math.max(1, b.text.length)) * 10) / 10,
           maxGapMs: Math.round(b.maxGap),
           endedWithEnter: b.enters > 0,
           enterCount: b.enters,
@@ -101,13 +114,21 @@ export default function ReaderCheckPage() {
           >
             <code className="break-all rounded-lg bg-page p-3 text-sm">{capture.raw}</code>
 
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+            {/* The two numbers the detector actually tests are the pace and
+                the gap. They are shown against the thresholds so a swipe on
+                the club's own tablets answers the question directly. */}
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-5">
               <Stat label="Characters" value={String(capture.chars)} />
               <Stat label="Total time" value={`${capture.totalMs} ms`} />
               <Stat
-                label="Largest gap"
+                label="Pace (limit 25)"
+                value={`${capture.msPerChar} ms/char`}
+                warn={capture.msPerChar >= BURST_DEFAULTS.maxMsPerChar}
+              />
+              <Stat
+                label="Largest gap (limit 80)"
                 value={`${capture.maxGapMs} ms`}
-                warn={capture.maxGapMs >= 50}
+                warn={capture.maxGapMs >= BURST_DEFAULTS.gapMs}
               />
               <Stat
                 label="Enter keys"
@@ -115,6 +136,12 @@ export default function ReaderCheckPage() {
                 warn={capture.enterCount !== 1}
               />
             </dl>
+
+            <p className={accepted(capture) ? "text-good" : "text-danger"}>
+              {accepted(capture)
+                ? "This swipe would be accepted."
+                : "This swipe would be IGNORED — send these numbers on."}
+            </p>
 
             <div className="text-sm text-ink-secondary">
               <p>

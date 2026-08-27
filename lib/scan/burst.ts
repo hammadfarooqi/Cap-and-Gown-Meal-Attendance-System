@@ -8,10 +8,12 @@ export type BurstOptions = {
 };
 
 /**
- * Measured, not guessed. A real Princeton TigerCard through a real
- * magnetic-stripe reader on 2026-08-26 produced:
+ * Measured, not guessed. Nine swipes of a real Princeton TigerCard through a
+ * real magnetic-stripe reader on 2026-08-26:
  *
- *   54 characters · 339 ms total · 10 ms largest gap · 1 Enter
+ *   54 characters every time · 1 Enter every time
+ *   total time  337-342 ms   (1.5% spread — very stable)
+ *   largest gap   9-16 ms    (78% spread — the jumpy one)
  *
  * The first version of this capped the WHOLE burst at 200 ms, which was set
  * when the card was assumed to be a ~14-digit barcode. A TigerCard sends both
@@ -24,14 +26,28 @@ export type BurstOptions = {
  * than the 50 ms gap allows — it also catches a burst where every gap sits
  * just under the threshold, which sustained fast typing would look like.
  *
- * The gap does the real discriminating: 10 ms measured against 50 ms is five
- * times the margin, and no person types fifteen characters with every gap
- * under 50 ms.
+ * THE TWO CHECKS DO DIFFERENT JOBS, which is why they are tuned differently.
+ *
+ * The per-character pace is what rejects a human. Nobody sustains 25 ms per
+ * keystroke over ten characters; the fastest typists sit near 100 ms. It is
+ * also the stable measurement — 6.33 ms worst case across nine swipes, a
+ * spread of 1.5%.
+ *
+ * The gap's job is to throw away a stray keypress so it cannot prefix the
+ * next scan, and to survive the machine hiccuping mid-swipe. It is the
+ * VARIABLE measurement — 9 to 16 ms, a 78% spread — and it is destructive:
+ * one gap over the threshold splits a burst in half and the swipe silently
+ * does nothing. A tablet has more running in the background than a laptop.
+ *
+ * So the gap is set at 80 ms, five times the worst observed, rather than
+ * tight against it. Raising it does not let a typist through, because the
+ * pace check catches that independently: a burst with every gap at 70 ms
+ * averages 70 ms per character and fails on pace.
  */
 export const BURST_DEFAULTS = {
   minTokenLength: 10,
   maxMsPerChar: 25,
-  gapMs: 50,
+  gapMs: 80,
 } as const;
 
 /**

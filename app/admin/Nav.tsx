@@ -11,6 +11,7 @@ const SECTIONS = [
   { href: "/admin/roster", label: "Roster" },
   { href: "/admin/photos", label: "Photos" },
   { href: "/admin/devices", label: "Tablets" },
+  { href: "/admin/admins", label: "Officers" },
 ];
 
 export function Nav({ email }: { email: string }) {

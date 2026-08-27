@@ -23,7 +23,7 @@ type Screen =
   | { kind: "checked-in"; person: CachedPerson; mealPeriod: string; url: string | null }
   | { kind: "no-meal" }
   | { kind: "candidates"; token: string; candidates: CachedPerson[]; nameParts: string[] }
-  | { kind: "guest-form"; card: string }
+  | { kind: "guest-form"; card: string; nameParts: string[] }
   | { kind: "already-bound"; netid: string }
   | { kind: "failed" };
 
@@ -250,7 +250,9 @@ export function StationScreen({
         <Candidates
           people={screen.candidates}
           onPick={async (netid) => finish(await bindMember(screen.token, netid, deps))}
-          onGuest={() => setScreen({ kind: "guest-form", card: screen.token })}
+          onGuest={() =>
+            setScreen({ kind: "guest-form", card: screen.token, nameParts: screen.nameParts })
+          }
           onCancel={returnToIdle}
         />
       )}
@@ -267,7 +269,7 @@ export function StationScreen({
           clubs={clubs}
           onCancel={() => setScreen({ kind: "idle" })}
           onSubmit={async (netid, club) =>
-            finish(await createGuest(screen.card, netid, club, deps))
+            finish(await createGuest(screen.card, netid, club, deps, screen.nameParts))
           }
         />
       )}

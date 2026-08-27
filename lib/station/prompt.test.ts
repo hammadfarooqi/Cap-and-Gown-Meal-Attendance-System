@@ -126,9 +126,20 @@ describe("createGuest", () => {
     const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api));
 
     expect(outcome).toEqual({ kind: "checked-in", person: GUEST, mealPeriod: "lunch" });
-    expect(api.createGuest).toHaveBeenCalledWith(DEVICE_TOKEN, "gg9999", "Cottage", "CARD-G");
+    expect(api.createGuest).toHaveBeenCalledWith(DEVICE_TOKEN, "gg9999", "Cottage", "CARD-G", []);
     expect((await store.resolveToken("CARD-G"))?.netid).toBe("gg9999");
     expect(await store.outboxSize()).toBe(1);
+  });
+
+  it("PASSES THE CARD'S NAME THROUGH, so a guest is not recorded as a netID", async () => {
+    const store = await seeded();
+    const api = fakeApi();
+
+    await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api), ["ALICE", "BROWNING"]);
+
+    expect(api.createGuest).toHaveBeenCalledWith(
+      DEVICE_TOKEN, "gg9999", "Cottage", "CARD-G", ["ALICE", "BROWNING"],
+    );
   });
 
   it("IS ABANDONED WHEN THE SERVER IS UNREACHABLE — an accepted, deliberate loss", async () => {

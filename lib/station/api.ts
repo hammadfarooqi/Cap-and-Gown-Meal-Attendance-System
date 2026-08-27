@@ -99,12 +99,13 @@ export const api = {
     netid: string,
     homeClub: string,
     card: string | null,
+    cardName: string[] = [],
     timing?: TimingOptions,
   ) =>
     request<CachedPerson>(
       "/api/guests",
       deviceToken,
-      { method: "POST", body: JSON.stringify({ netid, homeClub, token: card }) },
+      { method: "POST", body: JSON.stringify({ netid, homeClub, token: card, cardName }) },
       timing,
     ),
 

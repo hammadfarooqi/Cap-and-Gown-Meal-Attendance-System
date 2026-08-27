@@ -41,6 +41,19 @@ export async function POST(req: Request) {
   const homeClub = typeof body?.homeClub === "string" ? body.homeClub : null;
   const token = typeof body?.token === "string" ? body.token : null;
 
+  // The stripe's name, e.g. ["ALICE","BROWNING"]. Used ONLY when creating
+  // somebody: an existing person keeps the name they already have, so a
+  // member mis-read into this flow is never renamed by their own card and a
+  // departed member keeps the name their swipe history hangs off.
+  const cardName: string[] = Array.isArray(body?.cardName)
+    ? body.cardName.filter((p: unknown): p is string => typeof p === "string" && p.length > 0)
+    : [];
+
+  /** "ALICE/BROWNING" -> "Alice Browning". */
+  const nameFromCard = cardName
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+
   const directory = await lookupNetid(rawNetid);
   if (!directory || !homeClub) {
     return NextResponse.json({ error: "valid netid and homeClub required" }, { status: 400 });
@@ -64,8 +77,10 @@ export async function POST(req: Request) {
       .from("people")
       .insert({
         netid,
-        // Until O2 closes there is no name to fetch, so the netID stands in.
-        full_name: directory.fullName ?? netid,
+        // Directory first once O2 closes, then the stripe, then the netID.
+        // A typed netID carries no name at all, which is the case that still
+        // wants the directory.
+        full_name: directory.fullName ?? (nameFromCard || netid),
         is_member: false,
         home_club: homeClub,
       })

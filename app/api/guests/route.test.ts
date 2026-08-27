@@ -155,6 +155,35 @@ describe("POST /api/guests", () => {
     expect(data!.map((r) => r.token)).toEqual([CARD]);
   });
 
+  it("NAMES A NEW GUEST FROM THE CARD instead of their netID", async () => {
+    // O2 is still a stub, so without this the guest ledger is a column of
+    // logins. The stripe already carries their name.
+    const res = await POST(
+      request({ netid: GUEST, homeClub: "Cottage", token: CARD, cardName: ["ALICE", "BROWNING"] }, token),
+    );
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.fullName).toBe("Alice Browning");
+  });
+
+  it("NEVER OVERWRITES AN EXISTING PERSON'S NAME", async () => {
+    // A card name is used only when creating somebody. A member whose card is
+    // mis-read into this flow must not be renamed by their own stripe, and a
+    // departed member keeps the name their swipe history hangs off.
+    const res = await POST(
+      request({ netid: MEMBER, homeClub: "Cottage", token: CARD, cardName: ["WRONG", "NAME"] }, token),
+    );
+
+    expect((await res.json()).data.fullName).toBe("Current Member");
+  });
+
+  it("still falls back to the netID when no card name is sent", async () => {
+    // A typed netID carries no name at all. That case still wants O2.
+    const res = await POST(request({ netid: GUEST, homeClub: "Cottage" }, token));
+
+    expect((await res.json()).data.fullName).toBe(GUEST);
+  });
+
   it("normalises a netid typed in capitals", async () => {
     await POST(request({ netid: GUEST.toUpperCase(), homeClub: "Cottage" }, token));
     expect(await personRow(GUEST)).not.toBeNull();

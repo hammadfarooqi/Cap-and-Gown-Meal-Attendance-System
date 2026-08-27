@@ -49,13 +49,15 @@ export async function createGuest(
   netid: string,
   homeClub: string,
   deps: ResolveDeps,
+  /** The name printed on the card, so a guest is not recorded as a netID. */
+  cardName: string[] = [],
 ): Promise<ScanOutcome> {
   const at = deps.now?.() ?? new Date();
 
   const meal = deriveMeal(at, await deps.store.getSchedule());
   if (!meal) return { kind: "no-meal" };
 
-  const result = await deps.api.createGuest(deps.deviceToken, netid, homeClub, card);
+  const result = await deps.api.createGuest(deps.deviceToken, netid, homeClub, card, cardName);
 
   // Spec section 8. That person already has a card, which means a replacement
   // or the wrong netID — neither is safe to guess at, and neither is a

@@ -9,12 +9,21 @@ type GuestFormProps = {
   onCancel: () => void;
 };
 
+/** The clubs as listed, with "None" moved to the end. */
+function ordered(clubs: string[]): string[] {
+  return [...clubs.filter((c) => c !== "None"), ...clubs.filter((c) => c === "None")];
+}
+
 export function GuestForm({ clubs, onSubmit, onCancel }: GuestFormProps) {
   const [netid, setNetid] = useState("");
-  const [club, setClub] = useState(clubs[0] ?? "None");
+  // Starts unchosen. Defaulting to the first club alphabetically meant a
+  // careless submit filed a guest as a member of whichever club that was.
+  const [club, setClub] = useState("");
   const [touched, setTouched] = useState(false);
 
-  const valid = isValidNetid(netid);
+  const netidOk = isValidNetid(netid);
+  const clubOk = club !== "";
+  const valid = netidOk && clubOk;
 
   return (
     <form
@@ -27,7 +36,7 @@ export function GuestForm({ clubs, onSubmit, onCancel }: GuestFormProps) {
         if (valid) onSubmit(netid.trim().toLowerCase(), club);
       }}
     >
-      <h2 className="text-2xl font-semibold">Guest</h2>
+      <h2 className="text-center text-2xl font-semibold">Guest</h2>
 
       <label className="flex flex-col gap-1">
         <span className="text-sm text-ink-secondary">netID</span>
@@ -45,27 +54,38 @@ export function GuestForm({ clubs, onSubmit, onCancel }: GuestFormProps) {
         />
       </label>
 
-      {touched && !valid && (
+      {touched && !netidOk && (
         <p role="alert" className="text-sm text-danger">
           That does not look like a netID.
         </p>
       )}
 
       <label className="flex flex-col gap-1">
-        <span className="text-sm text-ink-secondary">Their club</span>
+        <span className="text-sm text-ink-secondary">Your club</span>
         <select
           value={club}
           onChange={(e) => setClub(e.target.value)}
-          aria-label="Home club"
+          aria-label="Your club"
           className="rounded-lg bg-surface px-4 py-3 text-xl text-ink ring-1 ring-line-strong"
         >
-          {clubs.map((name) => (
+          <option value="" disabled>
+            Choose one…
+          </option>
+          {/* "Not in a club" is an answer of last resort, so it sits at the
+              bottom rather than wherever "None" falls alphabetically. */}
+          {ordered(clubs).map((name) => (
             <option key={name} value={name}>
               {name === "None" ? "Not in a club" : name}
             </option>
           ))}
         </select>
       </label>
+
+      {touched && netidOk && !clubOk && (
+        <p role="alert" className="text-sm text-danger">
+          Please choose a club.
+        </p>
+      )}
 
       <div className="flex gap-3">
         <button

@@ -55,7 +55,7 @@ describe("Candidates", () => {
 
     const heading = screen.getByTestId("candidates");
     expect(heading).not.toHaveTextContent(/is this you/i);
-    expect(heading).toHaveTextContent(/do not recognise/i);
+    expect(heading).toHaveTextContent(/scanned here before/i);
   });
 
   it("OFFERS THE GUEST ROUTE EVEN WITH NO TILES", async () => {
@@ -87,22 +87,5 @@ describe("Candidates", () => {
     expect(screen.getByText(/officer or the business manager/i)).toBeInTheDocument();
   });
 
-  it("RELEASES THE LANE eventually, so a walked-away swipe does not block it", async () => {
-    // Short real duration, not fake timers: faking them freezes
-    // fake-indexeddb, which resolves on real async scheduling.
-    const onCancel = vi.fn();
-    render(<Candidates people={ONE} {...noop} onCancel={onCancel} dismissMs={20} />);
 
-    await vi.waitFor(() => expect(onCancel).toHaveBeenCalled());
-  });
-
-  it("does NOT release the lane while somebody is still reading it", async () => {
-    // The result screens fall back to idle after 3 seconds. This one must
-    // not, or the tablet clears itself while a person is choosing.
-    const onCancel = vi.fn();
-    render(<Candidates people={ONE} {...noop} onCancel={onCancel} dismissMs={10_000} />);
-
-    await new Promise((r) => setTimeout(r, 30));
-    expect(onCancel).not.toHaveBeenCalled();
-  });
 });

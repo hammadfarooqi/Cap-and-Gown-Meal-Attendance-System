@@ -1,18 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import type { CachedPerson } from "@/lib/station/store";
 import { Avatar } from "./Avatar";
-
-/**
- * How long this stays up before the lane is released.
- *
- * Result screens fall back to idle after 3 seconds. This one must not —
- * somebody is standing here reading it and deciding. 30 seconds is long
- * enough to choose and short enough that a swipe walked away from does not
- * block the tablet for the next person.
- */
-export const CANDIDATES_DISMISS_MS = 30_000;
 
 type CandidatesProps = {
   /** Unbound people the card's printed name could mean. May be empty. */
@@ -20,8 +9,6 @@ type CandidatesProps = {
   onPick: (netid: string) => void;
   onGuest: () => void;
   onCancel: () => void;
-  /** Injectable so a test need not wait 30 seconds or fake timers. */
-  dismissMs?: number;
 };
 
 /**
@@ -34,21 +21,7 @@ type CandidatesProps = {
  * A name never identifies anybody (spec A8), so nothing here binds without a
  * person tapping their own tile.
  */
-export function Candidates({
-  people,
-  onPick,
-  onGuest,
-  onCancel,
-  dismissMs = CANDIDATES_DISMISS_MS,
-}: CandidatesProps) {
-  // onCancel comes from a useCallback in StationScreen, so it is stable. If it
-  // ever stops being, this effect would clear its own timer on every render —
-  // the failure that has bitten this codebase twice already.
-  useEffect(() => {
-    const timer = setTimeout(onCancel, dismissMs);
-    return () => clearTimeout(timer);
-  }, [onCancel, dismissMs]);
-
+export function Candidates({ people, onPick, onGuest, onCancel }: CandidatesProps) {
   return (
     <div className="flex flex-col items-center gap-8">
       {/* Three headings, not two. With no tiles, "Is this you?" is a question
@@ -56,7 +29,7 @@ export function Candidates({
           swiping nothing at all. */}
       <p data-testid="candidates" className="text-3xl">
         {people.length === 0
-          ? "We do not recognise that card"
+          ? "You haven\u2019t scanned here before"
           : people.length > 1
             ? "Which one is you?"
             : "Is this you?"}

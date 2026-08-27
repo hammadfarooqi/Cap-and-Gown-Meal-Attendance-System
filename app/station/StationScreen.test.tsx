@@ -86,6 +86,7 @@ async function scan(card: string) {
  * call inside the component hangs and the test times out rather than failing.
  */
 const HOLD_MS = 60;
+const TAKEOVER_MS = 300;
 
 const mount = (store: StationStore, api: StationApi, now = DURING_LUNCH) =>
   render(
@@ -95,6 +96,7 @@ const mount = (store: StationStore, api: StationApi, now = DURING_LUNCH) =>
       deviceToken="tok"
       now={() => now}
       holdMs={HOLD_MS}
+      takeoverMs={TAKEOVER_MS}
       skipWarm
     />,
   );
@@ -319,5 +321,79 @@ describe("StationScreen", () => {
 
     await waitFor(() => expect(onUnenrolled).toHaveBeenCalledOnce());
     expect(screen.queryByTestId("failed")).not.toBeInTheDocument();
+  });
+
+  describe("what replaces the lane and what sits under it", () => {
+    it("KEEPS THE LANE LIVE UNDER A CHECK-IN, so the next person can swipe", async () => {
+      // The point of the whole layout: a result is a notice, not a takeover.
+      // The queue must not wait three seconds for the screen to clear.
+      mount(await seeded(), fakeApi());
+      await screen.findByTestId("idle");
+
+      await scan(ALICE_CARD);
+      await screen.findByTestId("name");
+
+      expect(screen.getByTestId("idle")).toBeInTheDocument();
+      expect(screen.getByLabelText("Enter an ID by hand")).toBeInTheDocument();
+    });
+
+    it("TAKES THE LANE for a question, because it is waiting on a person", async () => {
+      mount(await seeded(), fakeApi());
+      await screen.findByTestId("idle");
+
+      await scan(CAROL_CARD);
+      await screen.findByTestId("candidates");
+
+      expect(screen.queryByTestId("idle")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Enter an ID by hand")).not.toBeInTheDocument();
+    });
+
+    it("lets the NEXT SCAN take over a question nobody answered", async () => {
+      // Somebody walks off mid-decision. The lane must never jam behind them.
+      mount(await seeded(), fakeApi());
+      await screen.findByTestId("idle");
+
+      await scan(CAROL_CARD);
+      await screen.findByTestId("candidates");
+
+      await scan(ALICE_CARD);
+
+      expect(await screen.findByTestId("name")).toHaveTextContent("Alice Anderson");
+      expect(screen.queryByTestId("candidates")).not.toBeInTheDocument();
+    });
+
+    it("gives up on an unanswered question and gives the lane back", async () => {
+      mount(await seeded(), fakeApi());
+      await screen.findByTestId("idle");
+
+      await scan(CAROL_CARD);
+      await screen.findByTestId("candidates");
+
+      await waitFor(() => expect(screen.getByTestId("idle")).toBeInTheDocument(), {
+        timeout: TAKEOVER_MS * 4,
+      });
+    });
+
+    it("HOLDS THE OFFICER MESSAGE LONGER than an ordinary notice", async () => {
+      // It asks nothing at the tablet, so it is a notice — but it is an
+      // instruction somebody has to read, and three seconds does not do that.
+      const store = await seeded();
+      mount(store, fakeApi({
+        createGuest: vi.fn().mockResolvedValue({ ok: false, status: 409 }),
+      } as Partial<StationApi>));
+      await screen.findByTestId("idle");
+
+      await scan(UNKNOWN_CARD);
+      await userEvent.click(await screen.findByRole("button", { name: /guest/i }));
+      await userEvent.type(screen.getByLabelText("Guest netID"), "gg9999");
+      await userEvent.selectOptions(screen.getByLabelText("Your club"), "Cottage");
+      await userEvent.click(screen.getByRole("button", { name: /check in/i }));
+
+      await screen.findByTestId("already-bound");
+
+      // An ordinary notice would be gone by now.
+      await new Promise((resolve) => setTimeout(resolve, HOLD_MS * 4));
+      expect(screen.getByTestId("already-bound")).toBeInTheDocument();
+    });
   });
 });

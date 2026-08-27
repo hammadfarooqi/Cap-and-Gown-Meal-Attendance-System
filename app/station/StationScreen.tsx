@@ -14,18 +14,38 @@ import { Candidates } from "./Candidates";
 import { GuestForm } from "./GuestForm";
 import { ManualEntry } from "./ManualEntry";
 
-/** How long a result stays up before the screen returns to idle. */
-export const RESULT_HOLD_MS = 3000;
+/**
+ * The rule this screen follows.
+ *
+ * A message that asks the person to DO something replaces "Scan your card"
+ * and the input box, and waits — up to a minute — because somebody is standing
+ * there reading it. A message that asks nothing appears BELOW the idle screen
+ * and clears itself in three seconds, so the lane keeps moving and the next
+ * person can swipe straight over it.
+ */
+export const NOTICE_MS = 3000;
+/**
+ * The one exception. "See an officer" asks nothing at the tablet, so it is a
+ * notice — but it is the rarest message here and it is an instruction someone
+ * has to read and act on. Three seconds is not enough to do that.
+ */
+export const OFFICER_NOTICE_MS = 10_000;
+export const TAKEOVER_MS = 60_000;
 
-type Screen =
-  | { kind: "warming" }
-  | { kind: "idle" }
+/** Shown below the idle screen. Nothing here asks for a decision. */
+type Notice =
   | { kind: "checked-in"; person: CachedPerson; mealPeriod: string; url: string | null }
   | { kind: "no-meal" }
+  | { kind: "failed" }
+  | { kind: "already-bound"; netid: string };
+
+/** Replaces the idle screen. Each of these is waiting on a person. */
+type Takeover =
   | { kind: "candidates"; token: string; candidates: CachedPerson[]; nameParts: string[] }
-  | { kind: "guest-form"; card: string; nameParts: string[] }
-  | { kind: "already-bound"; netid: string }
-  | { kind: "failed" };
+  | { kind: "guest-form"; card: string; nameParts: string[] };
+
+const noticeDuration = (notice: Notice, base: number) =>
+  notice.kind === "already-bound" ? OFFICER_NOTICE_MS : base;
 
 export type StationScreenProps = {
   store: StationStore;
@@ -39,6 +59,8 @@ export type StationScreenProps = {
   onUnenrolled?: () => void;
   /** Overridable so tests need not fake timers, which breaks IndexedDB. */
   holdMs?: number;
+  /** Likewise, so a test need not wait a minute for a takeover to lapse. */
+  takeoverMs?: number;
 };
 
 export function StationScreen({
@@ -47,10 +69,13 @@ export function StationScreen({
   deviceToken,
   now,
   skipWarm,
-  holdMs = RESULT_HOLD_MS,
+  holdMs = NOTICE_MS,
+  takeoverMs = TAKEOVER_MS,
   onUnenrolled,
 }: StationScreenProps) {
-  const [screen, setScreen] = useState<Screen>(skipWarm ? { kind: "idle" } : { kind: "warming" });
+  const [warming, setWarming] = useState(!skipWarm);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [takeover, setTakeover] = useState<Takeover | null>(null);
   const [unsynced, setUnsynced] = useState(0);
   const [mealName, setMealName] = useState<string | null>(null);
   const [clubs, setClubs] = useState<string[]>([]);
@@ -71,22 +96,59 @@ export function StationScreen({
   const reportUnenrolled = useCallback(() => unenrolledRef.current?.(), []);
 
   const deps = { store, api, deviceToken, now: getNow };
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const takeoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeUrl = useRef<string | null>(null);
 
-  /** Show a result, then fall back to idle unless another scan lands first. */
-  const hold = useCallback((next: Screen) => {
-    if (holdTimer.current) clearTimeout(holdTimer.current);
+  const clearTimers = useCallback(() => {
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    if (takeoverTimer.current) clearTimeout(takeoverTimer.current);
+  }, []);
 
-    // Revoke the previous photo before replacing it, or every scan leaks one.
-    if (activeUrl.current) URL.revokeObjectURL(activeUrl.current);
-    activeUrl.current = next.kind === "checked-in" ? next.url : null;
+  /** Show a message below the idle screen, then let it clear itself. */
+  const showNotice = useCallback(
+    (next: Notice) => {
+      clearTimers();
 
-    setScreen(next);
-    holdTimer.current = setTimeout(() => setScreen({ kind: "idle" }), holdMs);
-  }, [holdMs]);
+      // Revoke the previous photo before replacing it, or every scan leaks one.
+      if (activeUrl.current) URL.revokeObjectURL(activeUrl.current);
+      activeUrl.current = next.kind === "checked-in" ? next.url : null;
 
-  const returnToIdle = useCallback(() => setScreen({ kind: "idle" }), []);
+      setTakeover(null);
+      setNotice(next);
+      noticeTimer.current = setTimeout(
+        () => setNotice(null),
+        noticeDuration(next, holdMs),
+      );
+    },
+    [holdMs, clearTimers],
+  );
+
+  /**
+   * Replace the idle screen with something that is waiting on a person.
+   *
+   * A scan that lands while one of these is up replaces it. The lane must
+   * never jam, and the cost — whoever was deciding has to swipe again — is
+   * smaller than a tablet stuck behind somebody who walked off.
+   */
+  const showTakeover = useCallback(
+    (next: Takeover) => {
+      clearTimers();
+      if (activeUrl.current) URL.revokeObjectURL(activeUrl.current);
+      activeUrl.current = null;
+
+      setNotice(null);
+      setTakeover(next);
+      takeoverTimer.current = setTimeout(() => setTakeover(null), takeoverMs);
+    },
+    [takeoverMs, clearTimers],
+  );
+
+  const returnToIdle = useCallback(() => {
+    clearTimers();
+    setTakeover(null);
+    setNotice(null);
+  }, [clearTimers]);
 
   const refreshLocalState = useCallback(async () => {
     const [clubList, queued, schedule] = await Promise.all([
@@ -113,7 +175,7 @@ export function StationScreen({
       }
       if (cancelled) return;
       await refreshLocalState();
-      if (!cancelled) setScreen({ kind: "idle" });
+      if (!cancelled) setWarming(false);
     })();
     return () => {
       cancelled = true;
@@ -129,7 +191,7 @@ export function StationScreen({
   const finish = useCallback(
     async (outcome: Awaited<ReturnType<typeof resolveScan>>) => {
       if (outcome.kind === "checked-in") {
-        hold({
+        showNotice({
           kind: "checked-in",
           person: outcome.person,
           mealPeriod: outcome.mealPeriod,
@@ -141,8 +203,7 @@ export function StationScreen({
         // an unhandled rejection.
         void flushOutbox({ store, api, deviceToken }).catch(() => {});
       } else if (outcome.kind === "candidates") {
-        if (holdTimer.current) clearTimeout(holdTimer.current);
-        setScreen({
+        showTakeover({
           kind: "candidates",
           token: outcome.token,
           candidates: outcome.candidates,
@@ -153,13 +214,13 @@ export function StationScreen({
         // the enrolment screen rather than showing a network error forever.
         reportUnenrolled();
       } else if (outcome.kind === "already-bound") {
-        hold({ kind: "already-bound", netid: outcome.netid });
+        showNotice({ kind: "already-bound", netid: outcome.netid });
       } else {
-        hold({ kind: outcome.kind });
+        showNotice({ kind: outcome.kind });
       }
       await refreshLocalState();
     },
-    [store, api, deviceToken, hold, refreshLocalState, reportUnenrolled],
+    [store, api, deviceToken, showNotice, showTakeover, refreshLocalState, reportUnenrolled],
   );
 
   const submitManual = useCallback(
@@ -180,20 +241,52 @@ export function StationScreen({
 
   useEffect(() => {
     return () => {
-      if (holdTimer.current) clearTimeout(holdTimer.current);
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+      if (takeoverTimer.current) clearTimeout(takeoverTimer.current);
       if (activeUrl.current) URL.revokeObjectURL(activeUrl.current);
     };
   }, []);
 
-  return (
-    <main className="station-dark flex min-h-screen flex-col items-center justify-center gap-6 bg-page p-8 text-ink">
-      {screen.kind === "warming" && (
+  if (warming) {
+    return (
+      <main className="station-dark flex min-h-screen flex-col items-center justify-center gap-6 bg-page p-8 text-ink">
         <p data-testid="warming" className="text-2xl text-ink-muted">
           Preparing…
         </p>
+      </main>
+    );
+  }
+
+  return (
+    <main className="station-dark flex min-h-screen flex-col items-center justify-center gap-6 bg-page p-8 text-ink">
+      {takeover?.kind === "candidates" && (
+        <Candidates
+          people={takeover.candidates}
+          onPick={async (netid) => finish(await bindMember(takeover.token, netid, deps))}
+          onGuest={() =>
+            showTakeover({
+              kind: "guest-form",
+              card: takeover.token,
+              nameParts: takeover.nameParts,
+            })
+          }
+          onCancel={returnToIdle}
+        />
       )}
 
-      {screen.kind === "idle" && (
+      {takeover?.kind === "guest-form" && (
+        <GuestForm
+          clubs={clubs}
+          onCancel={returnToIdle}
+          onSubmit={async (netid, club) =>
+            finish(await createGuest(takeover.card, netid, club, deps, takeover.nameParts))
+          }
+        />
+      )}
+
+      {/* The base. Present whenever nothing is waiting on a person, so the
+          next person in the queue can swipe over whatever is on screen. */}
+      {!takeover && (
         <>
           <p data-testid="idle" className="text-4xl font-light text-ink-secondary">
             Scan your card
@@ -213,65 +306,51 @@ export function StationScreen({
           )}
 
           <ManualEntry onSubmit={submitManual} />
+
+          {notice && (
+            <div
+              data-testid="notice"
+              className="mt-4 flex flex-col items-center gap-3 border-t border-line-strong pt-8"
+            >
+              {notice.kind === "checked-in" && (
+                <>
+                  <Avatar name={notice.person.fullName} url={notice.url} size="tile" />
+                  {/* The serif carries the member's name here and the club's
+                      name in the dashboard header. Those two places only. */}
+                  <p data-testid="name" className="font-display text-4xl">
+                    {notice.person.fullName}
+                  </p>
+                  <p
+                    data-testid="checked-in"
+                    className="text-lg uppercase tracking-[0.2em] text-ink-secondary"
+                  >
+                    Checked in for {notice.mealPeriod}
+                  </p>
+                </>
+              )}
+
+              {notice.kind === "no-meal" && (
+                <p data-testid="no-meal" className="text-2xl text-ink-secondary">
+                  No meal is running right now
+                </p>
+              )}
+
+              {notice.kind === "failed" && (
+                <p data-testid="failed" className="max-w-2xl text-center text-2xl text-ink">
+                  Could not reach the server —{" "}
+                  <span className="text-ink-secondary">not counted</span>
+                </p>
+              )}
+
+              {notice.kind === "already-bound" && (
+                <p data-testid="already-bound" className="max-w-2xl text-center text-2xl text-ink">
+                  That person already has a card —{" "}
+                  <span className="text-ink-secondary">please see an officer</span>
+                </p>
+              )}
+            </div>
+          )}
         </>
-      )}
-
-      {screen.kind === "checked-in" && (
-        <>
-          <Avatar name={screen.person.fullName} url={screen.url} />
-          {/* The serif carries the member's name here and the club's name in
-              the dashboard header. Those two places only — everything else on
-              this screen is the interface sans. */}
-          <p data-testid="name" className="font-display text-6xl">
-            {screen.person.fullName}
-          </p>
-          <p
-            data-testid="checked-in"
-            className="text-xl uppercase tracking-[0.2em] text-ink-secondary"
-          >
-            Checked in for {screen.mealPeriod}
-          </p>
-        </>
-      )}
-
-      {screen.kind === "no-meal" && (
-        <p data-testid="no-meal" className="text-3xl text-ink-secondary">
-          No meal is running right now
-        </p>
-      )}
-
-      {screen.kind === "failed" && (
-        <p data-testid="failed" className="max-w-2xl text-center text-3xl text-ink">
-          Could not reach the server — <span className="text-ink-secondary">not counted</span>
-        </p>
-      )}
-
-      {screen.kind === "candidates" && (
-        <Candidates
-          people={screen.candidates}
-          onPick={async (netid) => finish(await bindMember(screen.token, netid, deps))}
-          onGuest={() =>
-            setScreen({ kind: "guest-form", card: screen.token, nameParts: screen.nameParts })
-          }
-          onCancel={returnToIdle}
-        />
-      )}
-
-      {screen.kind === "already-bound" && (
-        <p data-testid="already-bound" className="max-w-2xl text-center text-3xl text-ink">
-          That person already has a card —{" "}
-          <span className="text-ink-secondary">please see an officer</span>
-        </p>
-      )}
-
-      {screen.kind === "guest-form" && (
-        <GuestForm
-          clubs={clubs}
-          onCancel={() => setScreen({ kind: "idle" })}
-          onSubmit={async (netid, club) =>
-            finish(await createGuest(screen.card, netid, club, deps, screen.nameParts))
-          }
-        />
       )}
     </main>
   );

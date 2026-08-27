@@ -129,6 +129,26 @@ describe("the station store", () => {
     expect(unbound).not.toContain("bb2222");
   });
 
+  it("UNBOUND PEOPLE INCLUDES GUESTS, unlike the member list", async () => {
+    // A guest entered by hand has a row and no card. When they later swipe
+    // one, the card's name must be able to find them.
+    const store = await open();
+    await store.putBootstrap({
+      people: [
+        person("aa1111"),
+        person("gg9999", { isMember: false, homeClub: "Cottage" }),
+        person("bb2222"),
+      ],
+      credentials: [{ token: "CARD-B", netid: "bb2222" }],
+      schedule: SCHEDULE, clubs: ["Cap & Gown", "Cottage", "None"], versions: { roster: 1, schedule: 1 },
+    });
+
+    const unbound = (await store.unboundPeople()).map((p) => p.netid);
+    expect(unbound).toContain("aa1111");
+    expect(unbound).toContain("gg9999");
+    expect(unbound).not.toContain("bb2222");
+  });
+
   it("excludes non-members from the member picker", async () => {
     const store = await open();
     await store.putBootstrap({

@@ -23,6 +23,17 @@ const BOB: CachedPerson = {
   homeClub: "Cap & Gown", photoPath: null,
 };
 
+/**
+ * Real stripe shapes, not bare numbers.
+ *
+ * The parser only treats a burst as a card when it carries track sentinels;
+ * anything else is a typed identifier and takes the netID path instead.
+ */
+const ALICE_CARD = "%111111111111111=ALICE/ANDERSON?;1111111111111118700=?";
+const BOB_CARD = "%222222222222222=BOB/BROWN?;2222222222222228700=?";
+/** A card nobody on the roster is named on. */
+const UNKNOWN_CARD = "%999999999999999=JOHN/SMITH?;9999999999999998700=?";
+
 const opened: { close(): void }[] = [];
 
 async function seeded(): Promise<StationStore> {
@@ -31,8 +42,8 @@ async function seeded(): Promise<StationStore> {
   await store.putBootstrap({
     people: [ALICE, BOB],
     credentials: [
-      { token: "11111111111111", netid: "aa1111" },
-      { token: "22222222222222", netid: "bb2222" },
+      { token: "111111111111111", netid: "aa1111" },
+      { token: "222222222222222", netid: "bb2222" },
     ],
     schedule: SCHEDULE,
     clubs: ["Cap & Gown", "Cottage", "None"],
@@ -97,7 +108,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
 
     expect(await screen.findByTestId("name")).toHaveTextContent("Alice Anderson");
     expect(screen.getByTestId("checked-in")).toHaveTextContent("Checked in for lunch");
@@ -108,7 +119,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
 
     expect(await screen.findByTestId("avatar-initials")).toHaveTextContent("AA");
   });
@@ -117,7 +128,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
     await screen.findByTestId("name");
 
     await waitFor(() => expect(screen.getByTestId("idle")).toBeInTheDocument(), {
@@ -131,10 +142,10 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
     expect(await screen.findByTestId("name")).toHaveTextContent("Alice Anderson");
 
-    await scan("22222222222222");
+    await scan(BOB_CARD);
 
     await waitFor(() =>
       expect(screen.getByTestId("name")).toHaveTextContent("Bob Brown"),
@@ -146,7 +157,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi(), BETWEEN_MEALS);
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
 
     expect(await screen.findByTestId("no-meal")).toBeInTheDocument();
   });
@@ -163,7 +174,7 @@ describe("StationScreen", () => {
     mount(store, fakeApi({ sync: vi.fn().mockResolvedValue({ ok: false, status: null }) } as Partial<StationApi>));
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
 
     await waitFor(() =>
       expect(screen.getByTestId("unsynced")).toHaveTextContent("1 waiting to sync"),
@@ -174,7 +185,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("99999999999999");
+    await scan(UNKNOWN_CARD);
 
     expect(await screen.findByTestId("prompt")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Member" })).toBeInTheDocument();
@@ -186,7 +197,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("99999999999999");
+    await scan(UNKNOWN_CARD);
     await screen.findByTestId("prompt");
 
     await new Promise((resolve) => setTimeout(resolve, HOLD_MS * 4));
@@ -196,11 +207,12 @@ describe("StationScreen", () => {
 
   it("CHECKS SOMEONE IN FROM THE TYPED BOX, with no reader involved", async () => {
     // The whole point: the club can serve a meal with a broken scanner, and
-    // the developer can test without hardware.
+    // the developer can test without hardware. The box takes a netID - the
+    // person's identity - not a card number, so nothing gets bound.
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "11111111111111");
+    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "aa1111");
     await userEvent.click(screen.getByRole("button", { name: "Enter" }));
 
     expect(await screen.findByTestId("name")).toHaveTextContent("Alice Anderson");
@@ -211,7 +223,7 @@ describe("StationScreen", () => {
     mount(store, fakeApi({ sync: vi.fn().mockResolvedValue({ ok: false, status: null }) } as Partial<StationApi>));
     await screen.findByTestId("idle");
 
-    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "11111111111111");
+    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "aa1111");
     await userEvent.click(screen.getByRole("button", { name: "Enter" }));
     await screen.findByTestId("name");
 
@@ -238,7 +250,7 @@ describe("StationScreen", () => {
     await screen.findByTestId("idle");
 
     const box = screen.getByLabelText("Enter an ID by hand");
-    await userEvent.type(box, "11111111111111");
+    await userEvent.type(box, "aa1111");
     await userEvent.click(screen.getByRole("button", { name: "Enter" }));
     await screen.findByTestId("name");
 
@@ -252,7 +264,7 @@ describe("StationScreen", () => {
     } as Partial<StationApi>));
     await screen.findByTestId("idle");
 
-    await scan("99999999999999");
+    await scan(UNKNOWN_CARD);
 
     expect(await screen.findByTestId("failed")).toHaveTextContent("not counted");
   });
@@ -277,7 +289,7 @@ describe("StationScreen", () => {
     );
     await screen.findByTestId("idle");
 
-    await scan("99999999999999");
+    await scan(UNKNOWN_CARD);
 
     await waitFor(() => expect(onUnenrolled).toHaveBeenCalledOnce());
     expect(screen.queryByTestId("failed")).not.toBeInTheDocument();

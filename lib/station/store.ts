@@ -115,6 +115,27 @@ export async function openStore() {
       return (await db.getAll("people")).filter((p) => p.isMember);
     },
 
+    /** Everyone the tablet knows, members and guests alike. */
+    async allPeople(): Promise<CachedPerson[]> {
+      return db.getAll("people");
+    },
+
+    /**
+     * Everyone with no card bound yet, members AND guests.
+     *
+     * A guest entered by hand has a person row and no credential. When they
+     * turn up later carrying a card, the name on it should offer them the
+     * same way it offers a member — they are just as unbound.
+     */
+    async unboundPeople(): Promise<CachedPerson[]> {
+      const [people, credentials] = await Promise.all([
+        db.getAll("people"),
+        db.getAll("credentials"),
+      ]);
+      const bound = new Set(credentials.map((c) => c.netid));
+      return people.filter((p) => !bound.has(p.netid));
+    },
+
     /**
      * Members with no card bound yet. Used only to order the picker — the
      * search over allMembers() must stay available, or a member who already

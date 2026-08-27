@@ -23,13 +23,39 @@ const MEMBER: CachedPerson = {
   photoPath: "aa1111.webp",
 };
 
+/** Shares a full name with TWIN_B, the way two real members do. */
+const TWIN_A: CachedPerson = {
+  netid: "rh1000", fullName: "Robin Hale", isMember: true, homeClub: "Cap & Gown", photoPath: null,
+};
+const TWIN_B: CachedPerson = {
+  netid: "rh1001", fullName: "Robin Hale", isMember: true, homeClub: "Cap & Gown", photoPath: null,
+};
+/** The name the synthetic test card is printed with. */
+const ON_THE_CARD: CachedPerson = {
+  netid: "ab1234", fullName: "Alice Browning", isMember: true, homeClub: "Cap & Gown", photoPath: null,
+};
+/** A guest entered by hand on an earlier night: a row, but no card. */
+const KNOWN_GUEST: CachedPerson = {
+  netid: "gg9999", fullName: "Guest Person", isMember: false, homeClub: "Cottage", photoPath: null,
+};
+
+/** A swipe from a card printed ALICE/BROWNING. */
+const CARD = "%999999000000123=ALICE/BROWNING?;9999990000001238700=?";
+/** A card whose printed name matches nobody on the roster. */
+const STRANGER_CARD = "%999999000000456=JOHN/SMITH?;9999990000004568700=?";
+/** A card printed with the name two members share. */
+const TWIN_CARD = "%999999000000789=ROBIN/HALE?;9999990000007898700=?";
+
 const opened: { close(): void }[] = [];
 
-async function seeded(credentials: { token: string; netid: string }[] = []): Promise<StationStore> {
+async function seeded(
+  credentials: { token: string; netid: string }[] = [],
+  people: CachedPerson[] = [MEMBER],
+): Promise<StationStore> {
   const store = await openStore();
   opened.push(store);
   await store.putBootstrap({
-    people: [MEMBER],
+    people,
     credentials,
     schedule: SCHEDULE,
     clubs: ["Cap & Gown", "Cottage", "None"],
@@ -68,10 +94,10 @@ afterEach(async () => {
 
 describe("resolveScan", () => {
   it("reports no meal outside every window, queuing nothing and calling nobody", async () => {
-    const store = await seeded([{ token: "CARD-1", netid: "aa1111" }]);
+    const store = await seeded([{ token: "999999000000123", netid: "aa1111" }]);
     const api = fakeApi();
 
-    const outcome = await resolveScan("CARD-1", deps(store, api, BETWEEN_MEALS));
+    const outcome = await resolveScan(CARD, deps(store, api, BETWEEN_MEALS));
 
     expect(outcome).toEqual({ kind: "no-meal" });
     expect(await store.outboxSize()).toBe(0);
@@ -80,10 +106,10 @@ describe("resolveScan", () => {
 
   describe("case 1 — the token is cached", () => {
     it("checks the person in with no network call at all", async () => {
-      const store = await seeded([{ token: "CARD-1", netid: "aa1111" }]);
+      const store = await seeded([{ token: "999999000000123", netid: "aa1111" }]);
       const api = fakeApi();
 
-      const outcome = await resolveScan("CARD-1", deps(store, api));
+      const outcome = await resolveScan(CARD, deps(store, api));
 
       expect(outcome).toEqual({
         kind: "checked-in",
@@ -96,12 +122,12 @@ describe("resolveScan", () => {
 
     it("resolves even while the network hangs forever", async () => {
       // The 500ms budget depends on this path never awaiting the network.
-      const store = await seeded([{ token: "CARD-1", netid: "aa1111" }]);
+      const store = await seeded([{ token: "999999000000123", netid: "aa1111" }]);
       const api = fakeApi({
         resolve: vi.fn().mockImplementation(() => new Promise(() => {})),
       } as Partial<StationApi>);
 
-      const outcome = await resolveScan("CARD-1", deps(store, api));
+      const outcome = await resolveScan(CARD, deps(store, api));
 
       expect(outcome.kind).toBe("checked-in");
     });
@@ -112,10 +138,10 @@ describe("resolveScan", () => {
       const store = await seeded();
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue(okResult(MEMBER)) } as Partial<StationApi>);
 
-      const outcome = await resolveScan("CARD-NEW", deps(store, api));
+      const outcome = await resolveScan(CARD, deps(store, api));
 
       expect(outcome.kind).toBe("checked-in");
-      expect((await store.resolveToken("CARD-NEW"))?.netid).toBe("aa1111");
+      expect((await store.resolveToken("999999000000123"))?.netid).toBe("aa1111");
       expect(await store.outboxSize()).toBe(1);
     });
 
@@ -123,8 +149,8 @@ describe("resolveScan", () => {
       const store = await seeded();
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue(okResult(MEMBER)) } as Partial<StationApi>);
 
-      await resolveScan("CARD-NEW", deps(store, api));
-      await resolveScan("CARD-NEW", deps(store, api));
+      await resolveScan(CARD, deps(store, api));
+      await resolveScan(CARD, deps(store, api));
 
       expect(api.resolve).toHaveBeenCalledOnce();
       expect(await store.outboxSize()).toBe(2);
@@ -138,30 +164,85 @@ describe("resolveScan", () => {
       const store = await seeded();
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue(okResult(guest)) } as Partial<StationApi>);
 
-      await resolveScan("CARD-G", deps(store, api));
+      await resolveScan(CARD, deps(store, api));
 
-      expect((await store.resolveToken("CARD-G"))?.fullName).toBe("Guest");
+      expect((await store.resolveToken("999999000000123"))?.fullName).toBe("Guest");
     });
   });
 
   describe("case 3 — not cached, the server has never seen the card", () => {
-    it("asks for the member-or-guest prompt", async () => {
-      const store = await seeded();
+    it("OFFERS THE ONE PERSON THE CARD NAMES", async () => {
+      // The path 194 of 196 members take on their first swipe.
+      const store = await seeded([], [MEMBER, ON_THE_CARD]);
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }) } as Partial<StationApi>);
 
-      expect(await resolveScan("CARD-X", deps(store, api)))
-        .toEqual({ kind: "prompt", card: "CARD-X", nameParts: [] });
+      const outcome = await resolveScan(CARD, deps(store, api));
+
+      expect(outcome.kind).toBe("candidates");
+      expect(outcome).toMatchObject({ token: "999999000000123" });
+      expect((outcome as { candidates: CachedPerson[] }).candidates.map((p) => p.netid))
+        .toEqual(["ab1234"]);
       expect(await store.outboxSize()).toBe(0);
+    });
+
+    it("OFFERS BOTH PEOPLE WHO SHARE A NAME rather than choosing one", async () => {
+      const store = await seeded([], [TWIN_A, TWIN_B]);
+      const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }) } as Partial<StationApi>);
+
+      const outcome = await resolveScan(TWIN_CARD, deps(store, api));
+
+      expect((outcome as { candidates: CachedPerson[] }).candidates.map((p) => p.netid))
+        .toEqual(["rh1000", "rh1001"]);
+    });
+
+    it("EXCLUDES SOMEBODY WHO ALREADY HAS A CARD", async () => {
+      // Once the first of the two is bound, the second swipe offers only the
+      // other one. Spec case 6.
+      const store = await seeded([{ token: "OTHER-CARD", netid: "rh1000" }], [TWIN_A, TWIN_B]);
+      const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }) } as Partial<StationApi>);
+
+      const outcome = await resolveScan(TWIN_CARD, deps(store, api));
+
+      expect((outcome as { candidates: CachedPerson[] }).candidates.map((p) => p.netid))
+        .toEqual(["rh1001"]);
+    });
+
+    it("OFFERS AN UNBOUND GUEST, not only members", async () => {
+      const store = await seeded([], [KNOWN_GUEST]);
+      const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }) } as Partial<StationApi>);
+
+      const outcome = await resolveScan(
+        "%999999000000999=GUEST/PERSON?;9999990000009998700=?",
+        deps(store, api),
+      );
+
+      expect((outcome as { candidates: CachedPerson[] }).candidates.map((p) => p.netid))
+        .toEqual(["gg9999"]);
+    });
+
+    it("offers nobody when the card names nobody on the roster", async () => {
+      const store = await seeded([], [MEMBER, ON_THE_CARD]);
+      const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }) } as Partial<StationApi>);
+
+      const outcome = await resolveScan(STRANGER_CARD, deps(store, api));
+
+      expect(outcome.kind).toBe("candidates");
+      expect((outcome as { candidates: CachedPerson[] }).candidates).toEqual([]);
     });
   });
 
   describe("case 4 — not cached, the server does not answer", () => {
-    it("still asks for the prompt, so a member can be bound offline", async () => {
-      const store = await seeded();
+    it("STILL OFFERS CANDIDATES, so a member is never stopped by dead Wi-Fi", async () => {
+      // Spec A6. The name match is local, so an unreachable server costs
+      // nothing on the member path.
+      const store = await seeded([], [MEMBER, ON_THE_CARD]);
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: null }) } as Partial<StationApi>);
 
-      expect(await resolveScan("CARD-X", deps(store, api)))
-        .toEqual({ kind: "prompt", card: "CARD-X", nameParts: [] });
+      const outcome = await resolveScan(CARD, deps(store, api));
+
+      expect(outcome.kind).toBe("candidates");
+      expect((outcome as { candidates: CachedPerson[] }).candidates.map((p) => p.netid))
+        .toEqual(["ab1234"]);
     });
 
     it("SAYS THE TABLET IS UNENROLLED when its token is dead", async () => {
@@ -171,7 +252,7 @@ describe("resolveScan", () => {
       const store = await seeded();
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 401 }) } as Partial<StationApi>);
 
-      expect(await resolveScan("CARD-X", deps(store, api))).toEqual({ kind: "unenrolled" });
+      expect(await resolveScan(CARD, deps(store, api))).toEqual({ kind: "unenrolled" });
       expect(await store.outboxSize()).toBe(0);
     });
 
@@ -181,12 +262,12 @@ describe("resolveScan", () => {
       const store = await seeded();
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 500 }) } as Partial<StationApi>);
 
-      expect(await resolveScan("CARD-X", deps(store, api))).toEqual({ kind: "failed" });
+      expect(await resolveScan(CARD, deps(store, api))).toEqual({ kind: "failed" });
     });
   });
 
   describe("a real magnetic stripe", () => {
-    const REAL_SWIPE = "%999999000000123=ALICE/BROWNING?;9999990000001238700=?";
+    const REAL_SWIPE = CARD;
 
     it("MATCHES ON EITHER NUMBER THE STRIPE CARRIES", async () => {
       // Track 2's number is track 1's plus a likely card-issue suffix. Bound
@@ -210,11 +291,8 @@ describe("resolveScan", () => {
 
       const outcome = await resolveScan(REAL_SWIPE, deps(store, api));
 
-      expect(outcome).toEqual({
-        kind: "prompt",
-        card: "999999000000123",
-        nameParts: ["ALICE", "BROWNING"],
-      });
+      expect(outcome.kind).toBe("candidates");
+      expect(outcome).toMatchObject({ token: "999999000000123" });
     });
 
     it("CACHES THE BASE ONLY, so one card is one row", async () => {
@@ -241,28 +319,81 @@ describe("resolveScan", () => {
     });
   });
 
+  describe("a typed netID", () => {
+    it("CHECKS IN DIRECTLY, with no tile and no binding", async () => {
+      // A typed netID is the identity itself. There is no card to bind, and
+      // asking "is this you?" would confirm what was just typed.
+      const store = await seeded([], [MEMBER]);
+      const api = fakeApi();
+
+      const outcome = await resolveScan("aa1111", deps(store, api), "manual");
+
+      expect(outcome.kind).toBe("checked-in");
+      expect(api.resolve).not.toHaveBeenCalled();
+      expect(await store.outboxSize()).toBe(1);
+    });
+
+    it("CHECKS IN SOMEBODY WHO ALREADY HAS A CARD", async () => {
+      // Matching only unbound people, the way the card path does, would send
+      // a bound member to the guest form. This is why it searches everyone.
+      const store = await seeded([{ token: "THEIR-CARD", netid: "aa1111" }], [MEMBER]);
+
+      const outcome = await resolveScan("aa1111", deps(store, fakeApi()), "manual");
+
+      expect(outcome.kind).toBe("checked-in");
+    });
+
+    it("checks in a guest the tablet already knows", async () => {
+      const store = await seeded([], [KNOWN_GUEST]);
+
+      const outcome = await resolveScan("gg9999", deps(store, fakeApi()), "manual");
+
+      expect(outcome.kind).toBe("checked-in");
+    });
+
+    it("BINDS NOTHING, because there is no card in a typed netID", async () => {
+      const store = await seeded([], [MEMBER]);
+
+      await resolveScan("aa1111", deps(store, fakeApi()), "manual");
+
+      const kinds = (await store.peekOutbox()).map((i) => i.kind);
+      expect(kinds).toEqual(["swipe"]);
+    });
+
+    it("offers nobody for a netID it has never seen", async () => {
+      const store = await seeded([], [MEMBER]);
+
+      const outcome = await resolveScan("zz9999", deps(store, fakeApi()), "manual");
+
+      expect(outcome.kind).toBe("candidates");
+      expect((outcome as { candidates: CachedPerson[] }).candidates).toEqual([]);
+    });
+  });
+
   describe("the queued swipe", () => {
     it("carries a netID, never the card token", async () => {
-      const store = await seeded([{ token: "CARD-1", netid: "aa1111" }]);
-      await resolveScan("CARD-1", deps(store, fakeApi()));
+      const store = await seeded([{ token: "999999000000123", netid: "aa1111" }]);
+      await resolveScan(CARD, deps(store, fakeApi()));
 
       const [item] = await store.peekOutbox();
       expect(item.kind).toBe("swipe");
       expect(item).toMatchObject({ netid: "aa1111" });
-      expect(JSON.stringify(item)).not.toContain("CARD-1");
+      expect(JSON.stringify(item)).not.toContain("999999000000123");
     });
 
     it("records the moment of the scan, which the rush histogram reads", async () => {
-      const store = await seeded([{ token: "CARD-1", netid: "aa1111" }]);
-      await resolveScan("CARD-1", deps(store, fakeApi()));
+      const store = await seeded([{ token: "999999000000123", netid: "aa1111" }]);
+      await resolveScan(CARD, deps(store, fakeApi()));
 
       const [item] = await store.peekOutbox();
       expect(item.kind === "swipe" && item.scannedAt).toBe(DURING_LUNCH.toISOString());
     });
 
     it("records manual entry as such", async () => {
-      const store = await seeded([{ token: "CARD-1", netid: "aa1111" }]);
-      await resolveScan("CARD-1", deps(store, fakeApi()), "manual");
+      const store = await seeded([{ token: "999999000000123", netid: "aa1111" }]);
+      // A card read on the lane that has no scanner: entry method is what
+      // the operator did, not what the input looked like.
+      await resolveScan(CARD, deps(store, fakeApi()), "manual");
 
       const [item] = await store.peekOutbox();
       expect(item.kind === "swipe" && item.entryMethod).toBe("manual");
@@ -271,11 +402,11 @@ describe("resolveScan", () => {
     it("queues a SECOND swipe on a repeat scan in the same meal", async () => {
       // The tablet does not deduplicate. The database's primary key does.
       // It is the only thing that can see all three lanes.
-      const store = await seeded([{ token: "CARD-1", netid: "aa1111" }]);
+      const store = await seeded([{ token: "999999000000123", netid: "aa1111" }]);
       const api = fakeApi();
 
-      const first = await resolveScan("CARD-1", deps(store, api));
-      const second = await resolveScan("CARD-1", deps(store, api));
+      const first = await resolveScan(CARD, deps(store, api));
+      const second = await resolveScan(CARD, deps(store, api));
 
       expect(first.kind).toBe("checked-in");
       expect(second.kind).toBe("checked-in");

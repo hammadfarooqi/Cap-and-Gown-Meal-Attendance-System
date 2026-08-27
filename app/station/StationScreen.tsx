@@ -22,7 +22,7 @@ type Screen =
   | { kind: "idle" }
   | { kind: "checked-in"; person: CachedPerson; mealPeriod: string; url: string | null }
   | { kind: "no-meal" }
-  | { kind: "prompt"; card: string; nameParts: string[] }
+  | { kind: "candidates"; token: string; candidates: CachedPerson[]; nameParts: string[] }
   | { kind: "member-picker"; card: string; nameParts: string[] }
   | { kind: "guest-form"; card: string }
   | { kind: "failed" };
@@ -145,9 +145,14 @@ export function StationScreen({
         // must be caught, or a closed database or a dead network surfaces as
         // an unhandled rejection.
         void flushOutbox({ store, api, deviceToken }).catch(() => {});
-      } else if (outcome.kind === "prompt") {
+      } else if (outcome.kind === "candidates") {
         if (holdTimer.current) clearTimeout(holdTimer.current);
-        setScreen({ kind: "prompt", card: outcome.card, nameParts: outcome.nameParts });
+        setScreen({
+          kind: "candidates",
+          token: outcome.token,
+          candidates: outcome.candidates,
+          nameParts: outcome.nameParts,
+        });
       } else if (outcome.kind === "unenrolled") {
         // No amount of retrying fixes a dead token. Hand the tablet back to
         // the enrolment screen rather than showing a network error forever.
@@ -244,7 +249,7 @@ export function StationScreen({
         </p>
       )}
 
-      {screen.kind === "prompt" && (
+      {screen.kind === "candidates" && (
         <div className="flex flex-col items-center gap-6">
           <p data-testid="prompt" className="text-3xl">
             Card not recognised
@@ -255,7 +260,7 @@ export function StationScreen({
               onClick={() =>
                 setScreen({
                   kind: "member-picker",
-                  card: screen.card,
+                  card: screen.token,
                   nameParts: screen.nameParts,
                 })
               }
@@ -265,7 +270,7 @@ export function StationScreen({
             </button>
             <button
               type="button"
-              onClick={() => setScreen({ kind: "guest-form", card: screen.card })}
+              onClick={() => setScreen({ kind: "guest-form", card: screen.token })}
               className="rounded-xl px-8 py-4 text-xl ring-1 ring-line-strong transition-colors duration-150 hover:bg-oxblood-wash"
             >
               Guest

@@ -88,11 +88,16 @@ async function cachePhotos(deps: BootstrapDeps, paths: string[]): Promise<number
  * Returns null if the server could not be reached — the caller keeps
  * whatever cache it already had rather than emptying a working tablet.
  */
-export async function warmCache(
-  deps: BootstrapDeps,
-): Promise<{ people: number; photos: number } | null> {
+export type WarmResult =
+  | { ok: true; people: number; photos: number }
+  | { ok: false; unenrolled: boolean };
+
+export async function warmCache(deps: BootstrapDeps): Promise<WarmResult> {
   const result = await deps.api.bootstrap(deps.deviceToken);
-  if (!result.ok) return null;
+
+  // A dead token is not a network problem, and no amount of retrying fixes
+  // it. The tablet has to be enrolled again.
+  if (!result.ok) return { ok: false, unenrolled: result.status === 401 };
 
   await deps.store.putBootstrap({
     people: result.data.people,
@@ -108,7 +113,7 @@ export async function warmCache(
 
   const photos = await cachePhotos(deps, paths);
 
-  return { people: result.data.people.length, photos };
+  return { ok: true, people: result.data.people.length, photos };
 }
 
 /**
@@ -124,7 +129,7 @@ export async function refreshIfStale(deps: BootstrapDeps, seen: Versions): Promi
     return false;
   }
 
-  return (await warmCache(deps)) !== null;
+  return (await warmCache(deps)).ok;
 }
 
 /**

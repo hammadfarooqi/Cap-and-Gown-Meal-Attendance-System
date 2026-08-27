@@ -121,6 +121,48 @@ test("revoking a tablet stops its token working, and keeps the row", async ({ pa
   expect(data!.revoked_at).not.toBeNull();
 });
 
+test("A REVOKED TABLET ASKS TO BE SET UP AGAIN, rather than blaming the network", async ({ page }) => {
+  // Found on 2026-08-26: a browser kept a token whose device was gone, so
+  // every call 401'd and the station said "could not reach the server"
+  // forever. Staff would go and check the Wi-Fi for a problem no network can
+  // fix, and the tablet would stay stuck. Revoking from the dashboard puts a
+  // tablet in exactly that state.
+  await signIn(page);
+  await page.goto("/admin/devices");
+
+  await page.getByLabel("Tablet name").fill(LANE);
+  await page.getByRole("button", { name: "Get a code" }).click();
+  const code = (await page.getByTestId("enrollment-code").textContent())!.trim();
+
+  await page.goto("/station");
+  const enrolled = await page.evaluate(async (c) => {
+    const res = await fetch("/api/devices/enroll", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: c }),
+    });
+    const body = await res.json();
+    localStorage.setItem("deviceToken", body.token);
+    return body;
+  }, code);
+
+  await page.reload();
+  await expect(page.getByTestId("idle")).toBeVisible({ timeout: 20000 });
+
+  // An officer revokes it from the dashboard. This is what production
+  // actually does — the device row is never deleted, because swipes
+  // reference it.
+  await db.from("devices")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("id", enrolled.deviceId);
+
+  await page.reload();
+
+  // Back to the enrolment screen, not a network error.
+  await expect(page.getByLabel("Enrolment code")).toBeVisible({ timeout: 20000 });
+  expect(await page.evaluate(() => localStorage.getItem("deviceToken"))).toBeNull();
+});
+
 test("the device list is not reachable without signing in", async ({ page }) => {
   await page.goto("/admin/devices");
   await expect(page).toHaveURL(/\/admin\/login$/);

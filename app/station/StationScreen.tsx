@@ -35,6 +35,8 @@ export type StationScreenProps = {
   now?: () => Date;
   /** Skip the network warm-up in tests that seed the store directly. */
   skipWarm?: boolean;
+  /** Called when the server says this tablet is no longer enrolled. */
+  onUnenrolled?: () => void;
   /** Overridable so tests need not fake timers, which breaks IndexedDB. */
   holdMs?: number;
 };
@@ -46,6 +48,7 @@ export function StationScreen({
   now,
   skipWarm,
   holdMs = RESULT_HOLD_MS,
+  onUnenrolled,
 }: StationScreenProps) {
   const [screen, setScreen] = useState<Screen>(skipWarm ? { kind: "idle" } : { kind: "warming" });
   const [unsynced, setUnsynced] = useState(0);
@@ -62,6 +65,14 @@ export function StationScreen({
   const nowRef = useRef(now);
   nowRef.current = now;
   const getNow = useCallback(() => nowRef.current?.() ?? new Date(), []);
+
+  // Same reason as `now`: an inline callback from the parent is a new
+  // function every render. In a dependency array it makes the warm-up effect
+  // re-run and cancel its own previous run, so the callback never fires at
+  // all — which is exactly how the first version of this failed.
+  const unenrolledRef = useRef(onUnenrolled);
+  unenrolledRef.current = onUnenrolled;
+  const reportUnenrolled = useCallback(() => unenrolledRef.current?.(), []);
 
   const deps = { store, api, deviceToken, now: getNow };
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,7 +108,14 @@ export function StationScreen({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!skipWarm) await warmCache({ store, api, deviceToken });
+      if (!skipWarm) {
+        const warmed = await warmCache({ store, api, deviceToken });
+        if (cancelled) return;
+        if (!warmed.ok && warmed.unenrolled) {
+          reportUnenrolled();
+          return;
+        }
+      }
       if (cancelled) return;
       await refreshLocalState();
       if (!cancelled) setScreen({ kind: "idle" });
@@ -105,7 +123,7 @@ export function StationScreen({
     return () => {
       cancelled = true;
     };
-  }, [store, api, deviceToken, skipWarm, refreshLocalState]);
+  }, [store, api, deviceToken, skipWarm, refreshLocalState, reportUnenrolled]);
 
   // Drain the outbox in the background.
   useEffect(() => {
@@ -130,12 +148,16 @@ export function StationScreen({
       } else if (outcome.kind === "prompt") {
         if (holdTimer.current) clearTimeout(holdTimer.current);
         setScreen({ kind: "prompt", cards: outcome.cards, nameParts: outcome.nameParts });
+      } else if (outcome.kind === "unenrolled") {
+        // No amount of retrying fixes a dead token. Hand the tablet back to
+        // the enrolment screen rather than showing a network error forever.
+        reportUnenrolled();
       } else {
         hold({ kind: outcome.kind });
       }
       await refreshLocalState();
     },
-    [store, api, deviceToken, hold, refreshLocalState],
+    [store, api, deviceToken, hold, refreshLocalState, reportUnenrolled],
   );
 
   const submitManual = useCallback(

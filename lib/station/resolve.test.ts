@@ -164,14 +164,24 @@ describe("resolveScan", () => {
         .toEqual({ kind: "prompt", cards: ["CARD-X"], nameParts: [] });
     });
 
-    it("reports failure on a definite refusal, rather than prompting into a void", async () => {
-      // A revoked device. A local prompt could not complete, and binding
-      // someone would only queue work that will never be accepted.
+    it("SAYS THE TABLET IS UNENROLLED when its token is dead", async () => {
+      // Revoked from the dashboard, or the device row is gone. Reporting this
+      // as "could not reach the server" sends staff to check the Wi-Fi for a
+      // problem no network fixes, and the tablet stays stuck forever.
       const store = await seeded();
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 401 }) } as Partial<StationApi>);
 
-      expect(await resolveScan("CARD-X", deps(store, api))).toEqual({ kind: "failed" });
+      expect(await resolveScan("CARD-X", deps(store, api))).toEqual({ kind: "unenrolled" });
       expect(await store.outboxSize()).toBe(0);
+    });
+
+    it("still reports plain failure on a server fault", async () => {
+      // A 500 is not a dead token. Re-enrolling would not help, and the
+      // tablet should keep its enrolment.
+      const store = await seeded();
+      const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 500 }) } as Partial<StationApi>);
+
+      expect(await resolveScan("CARD-X", deps(store, api))).toEqual({ kind: "failed" });
     });
   });
 

@@ -60,7 +60,7 @@ describe("warmCache", () => {
       fetchPhoto: async (p) => photoOf(p),
     });
 
-    expect(result).toEqual({ people: 1, photos: 1 });
+    expect(result).toEqual({ ok: true, people: 1, photos: 1 });
     expect(await store.getVersions()).toEqual({ roster: 7, schedule: 2 });
     expect(await store.getSchedule()).toEqual(SCHEDULE);
   });
@@ -77,7 +77,7 @@ describe("warmCache", () => {
 
     expect(fetchPhoto).toHaveBeenCalledOnce();
     expect(fetchPhoto).toHaveBeenCalledWith("bb2222.webp");
-    expect(result!.photos).toBe(1);
+    expect(result.ok && result.photos).toBe(1);
   });
 
   it("keeps going when one photo fails to download", async () => {
@@ -87,7 +87,7 @@ describe("warmCache", () => {
 
     const result = await warmCache({ store, api, deviceToken: DEVICE_TOKEN, fetchPhoto });
 
-    expect(result!.photos).toBe(1);
+    expect(result.ok && result.photos).toBe(1);
     expect(await store.hasPhoto("bb2222.webp")).toBe(true);
     expect(await store.hasPhoto("aa1111.webp")).toBe(false);
   });
@@ -101,11 +101,11 @@ describe("warmCache", () => {
 
     const result = await warmCache({ store, api, deviceToken: DEVICE_TOKEN, fetchPhoto });
 
-    expect(result).toEqual({ people: 2, photos: 0 });
+    expect(result).toEqual({ ok: true, people: 2, photos: 0 });
     expect(fetchPhoto).not.toHaveBeenCalled();
   });
 
-  it("returns null and changes nothing when the server is unreachable", async () => {
+  it("reports failure and changes nothing when the server is unreachable", async () => {
     const store = await open();
     await store.putBootstrap({
       people: [person("existing")], credentials: [], schedule: SCHEDULE,
@@ -116,9 +116,22 @@ describe("warmCache", () => {
     const api = fakeApi({ ok: false, status: null });
     const result = await warmCache({ store, api, deviceToken: DEVICE_TOKEN });
 
-    expect(result).toBeNull();
+    expect(result).toEqual({ ok: false, unenrolled: false });
     expect((await store.allMembers()).map((p) => p.netid)).toEqual(["existing"]);
     expect(await store.getVersions()).toEqual({ roster: 3, schedule: 3 });
+  });
+});
+
+describe("warmCache and a dead token", () => {
+  it("SAYS THE TABLET IS UNENROLLED, not that the network failed", async () => {
+    // A revoked tablet reporting "could not reach the server" sends staff to
+    // check the Wi-Fi for a problem no network fixes, and the tablet stays
+    // stuck forever.
+    const store = await open();
+    const api = fakeApi({ ok: false, status: 401 });
+
+    expect(await warmCache({ store, api, deviceToken: DEVICE_TOKEN }))
+      .toEqual({ ok: false, unenrolled: true });
   });
 });
 

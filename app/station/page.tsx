@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { openStore, type StationStore } from "@/lib/station/store";
 import { api } from "@/lib/station/api";
-import { getDeviceToken } from "@/lib/station/session";
+import { clearDeviceToken, getDeviceToken } from "@/lib/station/session";
 import { StationScreen } from "./StationScreen";
 import { EnrollScreen } from "./EnrollScreen";
 import { useServiceWorker } from "./useServiceWorker";
@@ -51,5 +51,17 @@ export default function StationPage() {
     );
   }
 
-  return <StationScreen store={store} api={api} deviceToken={deviceToken} />;
+  return (
+    <StationScreen
+      store={store}
+      api={api}
+      deviceToken={deviceToken}
+      onUnenrolled={() => {
+        // Revoked from the dashboard, or the device row is gone. Forget the
+        // dead token so the enrolment screen comes back on its own.
+        clearDeviceToken();
+        setToken(null);
+      }}
+    />
+  );
 }

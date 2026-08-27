@@ -13,7 +13,9 @@ export type ScanOutcome =
       /** The name the stripe carried, if any — used to pre-fill the picker. */
       nameParts: string[];
     }
-  | { kind: "failed" };
+  | { kind: "failed" }
+  /** The server says this tablet is not enrolled. It must be set up again. */
+  | { kind: "unenrolled" };
 
 export type ResolveDeps = {
   store: StationStore;
@@ -107,8 +109,14 @@ export async function resolveScan(
     return { kind: "prompt", cards: swipe.tokens, nameParts: swipe.nameParts };
   }
 
+  // The tablet's token is dead — revoked from the dashboard, or its device
+  // row is gone. Reporting this as "could not reach the server" sends staff
+  // to check the Wi-Fi for a problem no amount of network will fix, and the
+  // tablet stays stuck forever. Say what it actually is.
+  if (result.status === 401) return { kind: "unenrolled" };
+
   // A definite answer that is neither "here they are" nor "never seen it" —
-  // a revoked device, or a server fault. A local prompt cannot fix either,
-  // so say so rather than letting an operator bind someone into a void.
+  // a server fault. A local prompt cannot fix it, so say so rather than
+  // letting an operator bind someone into a void.
   return { kind: "failed" };
 }

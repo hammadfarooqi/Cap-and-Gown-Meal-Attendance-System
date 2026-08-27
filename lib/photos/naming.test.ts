@@ -3,25 +3,25 @@ import { netidFromFilename } from "./naming";
 
 describe("netidFromFilename", () => {
   it.each([
-    ["hf4888.jpg", "hf4888"],
-    ["hf4888.JPEG", "hf4888"],
-    ["HF4888.png", "hf4888"],
-    ["hf4888.webp", "hf4888"],
+    ["ab1234.jpg", "ab1234"],
+    ["ab1234.JPEG", "ab1234"],
+    ["AB1234.png", "ab1234"],
+    ["ab1234.webp", "ab1234"],
   ])("matches %s to %s", (filename, netid) => {
     expect(netidFromFilename(filename)).toBe(netid);
   });
 
   it.each([
-    ["hf4888 - Hammad Farooqi.jpg", "hf4888"],
-    ["hf4888_headshot.png", "hf4888"],
-    ["hf4888-2026.jpg", "hf4888"],
+    ["ab1234 - Alice Browning.jpg", "ab1234"],
+    ["ab1234_headshot.png", "ab1234"],
+    ["ab1234-2026.jpg", "ab1234"],
   ])("matches %s when the netID leads the name", (filename, netid) => {
     expect(netidFromFilename(filename)).toBe(netid);
   });
 
   it.each([
     "IMG_4471.jpg",
-    "Hammad Farooqi.jpg",
+    "Alice Browning.jpg",
     "headshot.png",
     "2026 roster photo.jpg",
   ])("REPORTS %s rather than guessing", (filename) => {
@@ -39,6 +39,6 @@ describe("netidFromFilename", () => {
     // and the wrong face ends up on somebody's check-in screen.
     expect(netidFromFilename("img_4471.jpg")).toBeNull();
     expect(netidFromFilename("photo.jpg")).toBeNull();
-    expect(netidFromFilename("hf4888.jpg")).toBe("hf4888");
+    expect(netidFromFilename("ab1234.jpg")).toBe("ab1234");
   });
 });

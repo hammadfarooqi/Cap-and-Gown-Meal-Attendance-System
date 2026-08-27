@@ -3,7 +3,7 @@ import { csvField, toCsv, EXPORT_COLUMNS } from "./csv";
 
 describe("csvField", () => {
   it("leaves an ordinary value alone", () => {
-    expect(csvField("Hammad")).toBe("Hammad");
+    expect(csvField("Alice")).toBe("Alice");
     expect(csvField(42)).toBe("42");
   });
 

@@ -21,11 +21,11 @@ describe("GuestForm", () => {
     const onSubmit = vi.fn();
     render(<GuestForm clubs={CLUBS} onSubmit={onSubmit} onCancel={vi.fn()} />);
 
-    await userEvent.type(screen.getByLabelText("Guest netID"), "  HF4888 ");
+    await userEvent.type(screen.getByLabelText("Guest netID"), "  AB1234 ");
     await userEvent.selectOptions(screen.getByLabelText("Home club"), "Cottage");
     await userEvent.click(screen.getByRole("button", { name: /check in/i }));
 
-    expect(onSubmit).toHaveBeenCalledWith("hf4888", "Cottage");
+    expect(onSubmit).toHaveBeenCalledWith("ab1234", "Cottage");
   });
 
   it("labels 'None' as not being in a club, rather than as a club named None", async () => {

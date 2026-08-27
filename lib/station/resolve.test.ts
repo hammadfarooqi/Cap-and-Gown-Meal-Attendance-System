@@ -186,12 +186,12 @@ describe("resolveScan", () => {
   });
 
   describe("a real magnetic stripe", () => {
-    const REAL_SWIPE = "%601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?";
+    const REAL_SWIPE = "%999999000000123=ALICE/BROWNING?;9999990000001238700=?";
 
     it("MATCHES ON EITHER NUMBER THE STRIPE CARRIES", async () => {
       // Track 2's number is track 1's plus a likely card-issue suffix. Bound
       // under one of them, a swipe must still resolve.
-      const store = await seeded([{ token: "601621920380463", netid: "aa1111" }]);
+      const store = await seeded([{ token: "999999000000123", netid: "aa1111" }]);
       const api = fakeApi();
 
       const outcome = await resolveScan(REAL_SWIPE, deps(store, api));
@@ -201,7 +201,7 @@ describe("resolveScan", () => {
     });
 
     it("matches when bound under the longer number instead", async () => {
-      const store = await seeded([{ token: "6016219203804638700", netid: "aa1111" }]);
+      const store = await seeded([{ token: "9999990000001238700", netid: "aa1111" }]);
 
       expect((await resolveScan(REAL_SWIPE, deps(store, fakeApi()))).kind).toBe("checked-in");
     });
@@ -218,8 +218,8 @@ describe("resolveScan", () => {
 
       expect(outcome).toEqual({
         kind: "prompt",
-        cards: ["6016219203804638700", "601621920380463"],
-        nameParts: ["HAMMAD", "FAROOQI"],
+        cards: ["9999990000001238700", "999999000000123"],
+        nameParts: ["ALICE", "BROWNING"],
       });
     });
 
@@ -229,8 +229,8 @@ describe("resolveScan", () => {
 
       await resolveScan(REAL_SWIPE, deps(store, api));
 
-      expect((await store.resolveToken("601621920380463"))?.netid).toBe("aa1111");
-      expect((await store.resolveToken("6016219203804638700"))?.netid).toBe("aa1111");
+      expect((await store.resolveToken("999999000000123"))?.netid).toBe("aa1111");
+      expect((await store.resolveToken("9999990000001238700"))?.netid).toBe("aa1111");
     });
 
     it("sends every candidate to the server in one call", async () => {
@@ -241,8 +241,8 @@ describe("resolveScan", () => {
 
       expect(api.resolve).toHaveBeenCalledOnce();
       expect(api.resolve).toHaveBeenCalledWith(DEVICE_TOKEN, [
-        "6016219203804638700",
-        "601621920380463",
+        "9999990000001238700",
+        "999999000000123",
       ]);
     });
   });

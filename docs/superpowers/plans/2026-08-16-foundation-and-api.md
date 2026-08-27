@@ -1509,7 +1509,7 @@ describe("onScan", () => {
 
     // 80ms between keys is slower than the 50ms gap threshold, so the buffer
     // clears repeatedly and Enter arrives with at most one character.
-    await type("hf4888", 80);
+    await type("ab1234", 80);
 
     expect(handler).not.toHaveBeenCalled();
   });

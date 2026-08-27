@@ -60,10 +60,11 @@ These are decisions taken deliberately. Each one can be revisited, but the
 design leans on them.
 
 **A1 — Credential capture. CLOSED 2026-08-26.** A magnetic-stripe reader,
-acting as a keyboard wedge. A real TigerCard produces:
+acting as a keyboard wedge. A real TigerCard produces this shape (the number
+and name below are synthetic; the structure and the timings are measured):
 
 ```
-%601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?
+%999999000000123=ALICE/BROWNING?;9999990000001238700=?
 
 Nine swipes, 2026-08-26:
   54 characters every time · exactly 1 Enter every time
@@ -124,7 +125,7 @@ burst where every gap sits just under 50 ms would pass the gap test but fail
 this one, which is what sustained fast typing looks like.
 
 Testing the burst — not merely testing for a non-empty buffer — is what stops a
-human typing `hf4888` by hand from firing a spurious scan of the last character
+human typing `ab1234` by hand from firing a spurious scan of the last character
 they happened to type within the gap window. When the test fails, the handler
 does nothing and lets the event flow through, so the manual entry box submits
 normally.
@@ -180,7 +181,7 @@ correct. The photo is the premium touch, not the function.
 **O6 is about naming, not size.** Resolution and file size do not matter, since
 the import pipeline re-encodes everything to a 400×400 WebP regardless of what
 arrives. What matters is whether each file can be matched to a netID. Files
-named `hf4888.jpg` import themselves. Files named `Hammad Farooqi.jpg` need a
+named `ab1234.jpg` import themselves. Files named `Alice Browning.jpg` need a
 name-to-netID match, which will fail on duplicates, nicknames, and middle names.
 Files named `IMG_4471.jpg` cannot be matched at all and would need 300 manual
 assignments. Ask the business manager how the files are named **before** the
@@ -614,7 +615,7 @@ Two known limitations, both accepted:
 
 ### Photo upload
 
-Bulk select or a zip, with files named by netID (`hf4888.jpg`). The server
+Bulk select or a zip, with files named by netID (`ab1234.jpg`). The server
 resizes each to roughly 400×400 and converts to WebP, **targeting about 40 KB
 per photo**. At the spring peak of 300 members that keeps the whole set near
 12 MB.

@@ -46,7 +46,7 @@ is loaded. Recurring cost is $0.
 
 ---
 
-## How to work with Hammad
+## How to work with the project's owner
 
 **He writes none of the code and reviews all of it.** He reads commit messages
 as the primary record, so write them as explanations rather than summaries —
@@ -188,7 +188,7 @@ students' names and email addresses, and git history is permanent.
 
 ### Before the club
 
-1. **Live testing and iteration.** Hammad is working through a walkthrough
+1. **Live testing and iteration.** The owner is working through a walkthrough
    covering enrolment, a real card swipe, the offline drill, and every
    dashboard page. Expect feedback on wording and feel as much as on bugs.
 2. **Headshots** — open question O5. Not blocking: the station falls back to

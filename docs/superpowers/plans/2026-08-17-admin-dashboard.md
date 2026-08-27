@@ -14,7 +14,7 @@
 
 ## Task order is the club's priority order
 
-Hammad ranked these on 2026-08-16. Tasks are sequenced to match, so work can stop at any point and what exists is the most valuable subset.
+These were ranked on 2026-08-16. Tasks are sequenced to match, so work can stop at any point and what exists is the most valuable subset.
 
 | Rank | Feature | Task |
 |---|---|---|
@@ -343,7 +343,7 @@ Resize to 400×400, convert to WebP, **target about 40 KB**. At the spring peak 
 
 - [x] **Step 3: Matching files to people**
 
-Files named `hf4888.jpg` import themselves. Anything else needs a manual match, so the page shows unmatched files and lets an officer assign them. Open question **O6** — how the club's export names its files — is still open, so this must handle both.
+Files named `ab1234.jpg` import themselves. Anything else needs a manual match, so the page shows unmatched files and lets an officer assign them. Open question **O6** — how the club's export names its files — is still open, so this must handle both.
 
 - [x] **Step 4: Tests**
 

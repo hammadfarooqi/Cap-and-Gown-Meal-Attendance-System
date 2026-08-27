@@ -1,9 +1,10 @@
 /**
  * Read a Princeton TigerCard magnetic stripe.
  *
- * Captured from a real card on 2026-08-26:
+ * The shape of a real swipe, measured 2026-08-26, shown here with a
+ * synthetic number and name:
  *
- *   %601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?
+ *   %999999000000123=ALICE/BROWNING?;9999990000001238700=?
  *
  * Both tracks arrive as ONE 54-character burst — track 1 between % and ?,
  * track 2 between ; and ?. Neither number is the netID: they are card
@@ -47,7 +48,7 @@ export function parseCardSwipe(raw: string): CardSwipe {
   // prefix it contains.
   const tokens = [...new Set(numbers)].sort((a, b) => b.length - a.length);
 
-  // "HAMMAD/FAROOQI". Which half is the surname varies by issuer, so both
+  // "ALICE/BROWNING". Which half is the surname varies by issuer, so both
   // parts are kept and the member search matches on either.
   const nameParts = (trackOne?.split("=")[1] ?? "")
     .split("/")

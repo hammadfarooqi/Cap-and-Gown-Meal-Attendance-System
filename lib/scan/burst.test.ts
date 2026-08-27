@@ -33,7 +33,7 @@ describe("onScan", () => {
 
     // 80ms between keys is slower than the 50ms gap threshold, so the buffer
     // clears repeatedly and Enter arrives with at most one character.
-    await type("hf4888", 80);
+    await type("ab1234", 80);
 
     expect(handler).not.toHaveBeenCalled();
   });
@@ -139,7 +139,7 @@ describe("onScan", () => {
     const handler = vi.fn();
     detach = onScan(handler);
 
-    const card = "%601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?";
+    const card = "%999999000000123=ALICE/BROWNING?;9999990000001238700=?";
     // 6.3 ms per character is what the reader actually sent.
     await type(card, 6);
 
@@ -152,7 +152,7 @@ describe("onScan", () => {
     const handler = vi.fn();
     detach = onScan(handler);
 
-    const card = "%601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?";
+    const card = "%999999000000123=ALICE/BROWNING?;9999990000001238700=?";
     for (const [i, ch] of [...card].entries()) {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: ch }));
       // One deliberate hiccup, the largest ever observed.

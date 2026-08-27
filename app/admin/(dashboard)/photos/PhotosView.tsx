@@ -77,7 +77,7 @@ export function PhotosView() {
         <h1 className="font-display text-3xl">Photos</h1>
         <p className="max-w-2xl text-ink-secondary">
           Headshots appear when somebody checks in. Files named for a netID —
-          <code className="mx-1 rounded bg-oxblood-wash px-1.5 py-0.5 text-sm">hf4888.jpg</code>
+          <code className="mx-1 rounded bg-oxblood-wash px-1.5 py-0.5 text-sm">ab1234.jpg</code>
           — are matched automatically; anything else is listed below for you to
           assign. Nothing is guessed, because the wrong guess puts somebody
           else&rsquo;s face on a student&rsquo;s screen.

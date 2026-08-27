@@ -33,7 +33,7 @@ export function netidFromFilename(filename: string): string | null {
 
   if (looksLikeANetid(base)) return base;
 
-  // "hf4888 - Hammad Farooqi.jpg", "hf4888_headshot.png"
+  // "ab1234 - Alice Browning.jpg", "ab1234_headshot.png"
   const leading = /^([a-z][a-z0-9]{1,15})[\s._-]/.exec(base)?.[1];
   if (leading && looksLikeANetid(leading)) return leading;
 

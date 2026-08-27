@@ -8,8 +8,8 @@ export type ScanOutcome =
   | { kind: "checked-in"; person: CachedPerson; mealPeriod: string }
   | {
       kind: "prompt";
-      /** Every identifier the swipe carried; all of them get bound. */
-      cards: string[];
+      /** The card's token, carried so a chosen person can be bound to it. */
+      card: string;
       /** The name the stripe carried, if any — used to pre-fill the picker. */
       nameParts: string[];
     }
@@ -82,31 +82,26 @@ export async function resolveScan(
   const meal = deriveMeal(at, await deps.store.getSchedule());
   if (!meal) return { kind: "no-meal" };
 
-  // A magnetic stripe carries two numbers, either of which may be the one
-  // this person was bound under.
+  // One token per card: track 1's 15-digit base.
   const swipe = parseCardSwipe(raw);
-  if (swipe.tokens.length === 0) return { kind: "failed" };
+  if (!swipe.token) return { kind: "failed" };
 
   // Case 1.
-  for (const token of swipe.tokens) {
-    const cached = await deps.store.resolveToken(token);
-    if (cached) return checkIn(cached, meal.mealPeriod, at, entryMethod, deps);
-  }
+  const cached = await deps.store.resolveToken(swipe.token);
+  if (cached) return checkIn(cached, meal.mealPeriod, at, entryMethod, deps);
 
-  const result = await deps.api.resolve(deps.deviceToken, swipe.tokens);
+  const result = await deps.api.resolve(deps.deviceToken, swipe.token);
 
   // Case 2.
   if (result.ok) {
     await deps.store.putPerson(result.data);
-    for (const token of swipe.tokens) {
-      await deps.store.addCredential(token, result.data.netid);
-    }
+    await deps.store.addCredential(swipe.token, result.data.netid);
     return checkIn(result.data, meal.mealPeriod, at, entryMethod, deps);
   }
 
   // Case 3 (404) and case 4 (no answer at all).
   if (result.status === 404 || result.status === null) {
-    return { kind: "prompt", cards: swipe.tokens, nameParts: swipe.nameParts };
+    return { kind: "prompt", card: swipe.token, nameParts: swipe.nameParts };
   }
 
   // The tablet's token is dead — revoked from the dashboard, or its device

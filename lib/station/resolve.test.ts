@@ -150,7 +150,7 @@ describe("resolveScan", () => {
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }) } as Partial<StationApi>);
 
       expect(await resolveScan("CARD-X", deps(store, api)))
-        .toEqual({ kind: "prompt", cards: ["CARD-X"], nameParts: [] });
+        .toEqual({ kind: "prompt", card: "CARD-X", nameParts: [] });
       expect(await store.outboxSize()).toBe(0);
     });
   });
@@ -161,7 +161,7 @@ describe("resolveScan", () => {
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: null }) } as Partial<StationApi>);
 
       expect(await resolveScan("CARD-X", deps(store, api)))
-        .toEqual({ kind: "prompt", cards: ["CARD-X"], nameParts: [] });
+        .toEqual({ kind: "prompt", card: "CARD-X", nameParts: [] });
     });
 
     it("SAYS THE TABLET IS UNENROLLED when its token is dead", async () => {
@@ -200,12 +200,6 @@ describe("resolveScan", () => {
       expect(api.resolve).not.toHaveBeenCalled();
     });
 
-    it("matches when bound under the longer number instead", async () => {
-      const store = await seeded([{ token: "9999990000001238700", netid: "aa1111" }]);
-
-      expect((await resolveScan(REAL_SWIPE, deps(store, fakeApi()))).kind).toBe("checked-in");
-    });
-
     it("CARRIES THE NAME OFF THE CARD INTO THE PROMPT", async () => {
       // 196 people each need binding once on the first day, and the card
       // already says who they are.
@@ -218,32 +212,32 @@ describe("resolveScan", () => {
 
       expect(outcome).toEqual({
         kind: "prompt",
-        cards: ["9999990000001238700", "999999000000123"],
+        card: "999999000000123",
         nameParts: ["ALICE", "BROWNING"],
       });
     });
 
-    it("caches BOTH numbers once the server identifies the holder", async () => {
+    it("CACHES THE BASE ONLY, so one card is one row", async () => {
+      // Inverted from the original design, which cached both numbers. Two
+      // rows for one card is now refused by the database, so caching the
+      // 19-digit number would put the tablet out of step with the server.
       const store = await seeded();
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue(okResult(MEMBER)) } as Partial<StationApi>);
 
       await resolveScan(REAL_SWIPE, deps(store, api));
 
       expect((await store.resolveToken("999999000000123"))?.netid).toBe("aa1111");
-      expect((await store.resolveToken("9999990000001238700"))?.netid).toBe("aa1111");
+      expect(await store.resolveToken("9999990000001238700")).toBeNull();
     });
 
-    it("sends every candidate to the server in one call", async () => {
+    it("asks the server about the base number, once", async () => {
       const store = await seeded();
       const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }) } as Partial<StationApi>);
 
       await resolveScan(REAL_SWIPE, deps(store, api));
 
       expect(api.resolve).toHaveBeenCalledOnce();
-      expect(api.resolve).toHaveBeenCalledWith(DEVICE_TOKEN, [
-        "9999990000001238700",
-        "999999000000123",
-      ]);
+      expect(api.resolve).toHaveBeenCalledWith(DEVICE_TOKEN, "999999000000123");
     });
   });
 

@@ -89,12 +89,12 @@ describe("flushOutbox", () => {
   it("sends bindings as well as swipes", async () => {
     const store = await open();
     const api = fakeApi();
-    await store.enqueue({ kind: "binding", tokens: ["CARD-9"], netid: "aa1111" });
+    await store.enqueue({ kind: "binding", token: "CARD-9", netid: "aa1111" });
     await store.enqueue(swipe("aa1111"));
 
     await flushOutbox({ store, api, deviceToken: DEVICE_TOKEN });
 
-    expect(api.bind).toHaveBeenCalledWith(DEVICE_TOKEN, ["CARD-9"], "aa1111");
+    expect(api.bind).toHaveBeenCalledWith(DEVICE_TOKEN, "CARD-9", "aa1111");
     expect(api.sync).toHaveBeenCalledOnce();
     expect(await store.outboxSize()).toBe(0);
   });
@@ -116,7 +116,7 @@ describe("flushOutbox", () => {
     const api = fakeApi({
       bind: vi.fn().mockResolvedValue({ ok: false, status: 409 }),
     } as Partial<StationApi>);
-    await store.enqueue({ kind: "binding", tokens: ["CARD-9"], netid: "aa1111" });
+    await store.enqueue({ kind: "binding", token: "CARD-9", netid: "aa1111" });
 
     await flushOutbox({ store, api, deviceToken: DEVICE_TOKEN });
 
@@ -128,7 +128,7 @@ describe("flushOutbox", () => {
     const api = fakeApi({
       bind: vi.fn().mockResolvedValue({ ok: false, status: null }),
     } as Partial<StationApi>);
-    await store.enqueue({ kind: "binding", tokens: ["CARD-9"], netid: "aa1111" });
+    await store.enqueue({ kind: "binding", token: "CARD-9", netid: "aa1111" });
 
     await flushOutbox({ store, api, deviceToken: DEVICE_TOKEN });
 
@@ -140,7 +140,7 @@ describe("flushOutbox", () => {
     const api = fakeApi({
       bind: vi.fn().mockResolvedValue({ ok: false, status: null }),
     } as Partial<StationApi>);
-    await store.enqueue({ kind: "binding", tokens: ["CARD-9"], netid: "aa1111" });
+    await store.enqueue({ kind: "binding", token: "CARD-9", netid: "aa1111" });
     await store.enqueue(swipe("aa1111"));
 
     await flushOutbox({ store, api, deviceToken: DEVICE_TOKEN });

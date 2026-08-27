@@ -78,19 +78,19 @@ export const api = {
   bootstrap: (deviceToken: string, timing?: TimingOptions) =>
     request<BootstrapPayload>("/api/bootstrap", deviceToken, { method: "GET" }, timing),
 
-  resolve: (deviceToken: string, cards: string[], timing?: TimingOptions) =>
+  resolve: (deviceToken: string, card: string, timing?: TimingOptions) =>
     request<CachedPerson>(
       "/api/resolve",
       deviceToken,
-      { method: "POST", body: JSON.stringify({ tokens: cards }) },
+      { method: "POST", body: JSON.stringify({ token: card }) },
       timing,
     ),
 
-  bind: (deviceToken: string, cards: string[], netid: string, timing?: TimingOptions) =>
-    request<{ tokens: string[]; netid: string }>(
+  bind: (deviceToken: string, card: string, netid: string, timing?: TimingOptions) =>
+    request<{ token: string; netid: string }>(
       "/api/bind",
       deviceToken,
-      { method: "POST", body: JSON.stringify({ tokens: cards, netid }) },
+      { method: "POST", body: JSON.stringify({ token: card, netid }) },
       timing,
     ),
 
@@ -98,13 +98,13 @@ export const api = {
     deviceToken: string,
     netid: string,
     homeClub: string,
-    cards: string[],
+    card: string | null,
     timing?: TimingOptions,
   ) =>
     request<CachedPerson>(
       "/api/guests",
       deviceToken,
-      { method: "POST", body: JSON.stringify({ netid, homeClub, token: cards[0] ?? null }) },
+      { method: "POST", body: JSON.stringify({ netid, homeClub, token: card }) },
       timing,
     ),
 

@@ -34,7 +34,7 @@ describe("the station API client", () => {
   it("unwraps the envelope so callers never see it", async () => {
     fetchMock.mockResolvedValue(jsonResponse(envelope({ netid: "aa1111" })));
 
-    const result = await api.resolve(DEVICE_TOKEN, ["CARD-1"], FAST);
+    const result = await api.resolve(DEVICE_TOKEN, "CARD-1", FAST);
 
     expect(result).toEqual({
       ok: true,
@@ -47,7 +47,7 @@ describe("the station API client", () => {
     // 404 means "unknown card", which is an answer the caller branches on.
     fetchMock.mockResolvedValue(jsonResponse({ error: "unknown token" }, 404));
 
-    const result = await api.resolve(DEVICE_TOKEN, ["CARD-1"], FAST);
+    const result = await api.resolve(DEVICE_TOKEN, "CARD-1", FAST);
 
     expect(result).toEqual({ ok: false, status: 404 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -63,7 +63,7 @@ describe("the station API client", () => {
   it("reports a 409 from bind without retrying", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ error: "already bound" }, 409));
 
-    expect(await api.bind(DEVICE_TOKEN, ["CARD-1"], "aa1111", FAST))
+    expect(await api.bind(DEVICE_TOKEN, "CARD-1", "aa1111", FAST))
       .toEqual({ ok: false, status: 409 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -71,7 +71,7 @@ describe("the station API client", () => {
   it("retries a network failure up to the attempt limit, then gives up", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
 
-    const result = await api.resolve(DEVICE_TOKEN, ["CARD-1"], FAST);
+    const result = await api.resolve(DEVICE_TOKEN, "CARD-1", FAST);
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(result).toEqual({ ok: false, status: null });
@@ -93,7 +93,7 @@ describe("the station API client", () => {
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))
       .mockResolvedValueOnce(jsonResponse(envelope({ netid: "aa1111" })));
 
-    const result = await api.resolve(DEVICE_TOKEN, ["CARD-1"], FAST);
+    const result = await api.resolve(DEVICE_TOKEN, "CARD-1", FAST);
 
     expect(result.ok).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -115,7 +115,7 @@ describe("the station API client", () => {
     );
 
     const started = Date.now();
-    const result = await api.resolve(DEVICE_TOKEN, ["CARD-1"], FAST);
+    const result = await api.resolve(DEVICE_TOKEN, "CARD-1", FAST);
 
     expect(result).toEqual({ ok: false, status: null });
     expect(Date.now() - started).toBeLessThan(500);
@@ -135,7 +135,7 @@ describe("the station API client", () => {
       DEVICE_TOKEN,
       [
         { kind: "swipe", netid: "aa1111", scannedAt: "2026-09-02T16:00:00Z", entryMethod: "scan" },
-        { kind: "binding", tokens: ["CARD-9"], netid: "aa1111" },
+        { kind: "binding", token: "CARD-9", netid: "aa1111" },
       ],
       FAST,
     );

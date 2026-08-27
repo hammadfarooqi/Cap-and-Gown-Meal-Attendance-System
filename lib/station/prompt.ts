@@ -12,7 +12,7 @@ import { checkIn, type ResolveDeps, type ScanOutcome } from "./resolve";
  * member at the door.
  */
 export async function bindMember(
-  cards: string[],
+  card: string,
   netid: string,
   deps: ResolveDeps,
 ): Promise<ScanOutcome> {
@@ -25,8 +25,8 @@ export async function bindMember(
   const person = people.find((p) => p.netid === netid);
   if (!person) return { kind: "failed" };
 
-  for (const card of cards) await deps.store.addCredential(card, netid);
-  await deps.store.enqueue({ kind: "binding", tokens: cards, netid });
+  await deps.store.addCredential(card, netid);
+  await deps.store.enqueue({ kind: "binding", token: card, netid });
 
   return checkIn(person, meal.mealPeriod, at, "manual", deps);
 }
@@ -45,7 +45,7 @@ export async function bindMember(
  * occasional missing count.
  */
 export async function createGuest(
-  cards: string[],
+  card: string | null,
   netid: string,
   homeClub: string,
   deps: ResolveDeps,
@@ -55,11 +55,11 @@ export async function createGuest(
   const meal = deriveMeal(at, await deps.store.getSchedule());
   if (!meal) return { kind: "no-meal" };
 
-  const result = await deps.api.createGuest(deps.deviceToken, netid, homeClub, cards);
+  const result = await deps.api.createGuest(deps.deviceToken, netid, homeClub, card);
   if (!result.ok) return { kind: "failed" };
 
   await deps.store.putPerson(result.data);
-  for (const card of cards) await deps.store.addCredential(card, result.data.netid);
+  if (card) await deps.store.addCredential(card, result.data.netid);
 
   return checkIn(result.data, meal.mealPeriod, at, "manual", deps);
 }

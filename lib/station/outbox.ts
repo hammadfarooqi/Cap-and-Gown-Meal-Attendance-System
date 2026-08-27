@@ -36,10 +36,11 @@ export async function flushOutbox(deps: OutboxDeps): Promise<FlushResult> {
     // sending them ahead means a newly bound card is known server-side by the
     // time anyone looks at the roster.
     for (const binding of bindings) {
-      const result = await deps.api.bind(deps.deviceToken, binding.tokens, binding.netid);
+      const result = await deps.api.bind(deps.deviceToken, binding.token, binding.netid);
 
-      // 409 means the server already bound that card to someone else and kept
-      // its own answer. Retrying forever would be a poison pill in the queue.
+      // 409 means the server refused: either that card belongs to somebody
+      // else, or this person already has one and two lanes raced. Both are
+      // final answers, and retrying forever would poison the queue.
       if (result.ok || result.status === 409 || result.status === 404) {
         done.push(binding.id);
       }

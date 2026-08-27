@@ -24,7 +24,7 @@ type StoredPhoto = { type: string; bytes: ArrayBuffer };
 
 export type OutboxItem =
   | { kind: "swipe"; netid: string; scannedAt: string; entryMethod: "scan" | "manual" }
-  | { kind: "binding"; tokens: string[]; netid: string };
+  | { kind: "binding"; token: string; netid: string };
 
 /** An outbox item as it comes back out, carrying the key it was stored under. */
 export type QueuedItem = OutboxItem & { id: number };

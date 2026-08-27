@@ -22,9 +22,9 @@ type Screen =
   | { kind: "idle" }
   | { kind: "checked-in"; person: CachedPerson; mealPeriod: string; url: string | null }
   | { kind: "no-meal" }
-  | { kind: "prompt"; cards: string[]; nameParts: string[] }
-  | { kind: "member-picker"; cards: string[]; nameParts: string[] }
-  | { kind: "guest-form"; cards: string[] }
+  | { kind: "prompt"; card: string; nameParts: string[] }
+  | { kind: "member-picker"; card: string; nameParts: string[] }
+  | { kind: "guest-form"; card: string }
   | { kind: "failed" };
 
 export type StationScreenProps = {
@@ -147,7 +147,7 @@ export function StationScreen({
         void flushOutbox({ store, api, deviceToken }).catch(() => {});
       } else if (outcome.kind === "prompt") {
         if (holdTimer.current) clearTimeout(holdTimer.current);
-        setScreen({ kind: "prompt", cards: outcome.cards, nameParts: outcome.nameParts });
+        setScreen({ kind: "prompt", card: outcome.card, nameParts: outcome.nameParts });
       } else if (outcome.kind === "unenrolled") {
         // No amount of retrying fixes a dead token. Hand the tablet back to
         // the enrolment screen rather than showing a network error forever.
@@ -255,7 +255,7 @@ export function StationScreen({
               onClick={() =>
                 setScreen({
                   kind: "member-picker",
-                  cards: screen.cards,
+                  card: screen.card,
                   nameParts: screen.nameParts,
                 })
               }
@@ -265,7 +265,7 @@ export function StationScreen({
             </button>
             <button
               type="button"
-              onClick={() => setScreen({ kind: "guest-form", cards: screen.cards })}
+              onClick={() => setScreen({ kind: "guest-form", card: screen.card })}
               className="rounded-xl px-8 py-4 text-xl ring-1 ring-line-strong transition-colors duration-150 hover:bg-oxblood-wash"
             >
               Guest
@@ -287,7 +287,7 @@ export function StationScreen({
           unbound={members.unbound}
           nameHint={screen.nameParts}
           onCancel={() => setScreen({ kind: "idle" })}
-          onPick={async (netid) => finish(await bindMember(screen.cards, netid, deps))}
+          onPick={async (netid) => finish(await bindMember(screen.card, netid, deps))}
         />
       )}
 
@@ -296,7 +296,7 @@ export function StationScreen({
           clubs={clubs}
           onCancel={() => setScreen({ kind: "idle" })}
           onSubmit={async (netid, club) =>
-            finish(await createGuest(screen.cards, netid, club, deps))
+            finish(await createGuest(screen.card, netid, club, deps))
           }
         />
       )}

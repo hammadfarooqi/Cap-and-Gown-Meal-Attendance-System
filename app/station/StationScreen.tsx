@@ -10,7 +10,7 @@ import { photoUrl, warmCache } from "@/lib/station/bootstrap";
 import type { StationStore, CachedPerson } from "@/lib/station/store";
 import type { StationApi } from "@/lib/station/api";
 import { Avatar } from "./Avatar";
-import { MemberPicker } from "./MemberPicker";
+import { Candidates } from "./Candidates";
 import { GuestForm } from "./GuestForm";
 import { ManualEntry } from "./ManualEntry";
 
@@ -23,8 +23,8 @@ type Screen =
   | { kind: "checked-in"; person: CachedPerson; mealPeriod: string; url: string | null }
   | { kind: "no-meal" }
   | { kind: "candidates"; token: string; candidates: CachedPerson[]; nameParts: string[] }
-  | { kind: "member-picker"; card: string; nameParts: string[] }
   | { kind: "guest-form"; card: string }
+  | { kind: "already-bound"; netid: string }
   | { kind: "failed" };
 
 export type StationScreenProps = {
@@ -53,10 +53,6 @@ export function StationScreen({
   const [screen, setScreen] = useState<Screen>(skipWarm ? { kind: "idle" } : { kind: "warming" });
   const [unsynced, setUnsynced] = useState(0);
   const [mealName, setMealName] = useState<string | null>(null);
-  const [members, setMembers] = useState<{ all: CachedPerson[]; unbound: CachedPerson[] }>({
-    all: [],
-    unbound: [],
-  });
   const [clubs, setClubs] = useState<string[]>([]);
 
   // `now` arrives as a fresh closure on every render. Reading it through a
@@ -90,15 +86,14 @@ export function StationScreen({
     holdTimer.current = setTimeout(() => setScreen({ kind: "idle" }), holdMs);
   }, [holdMs]);
 
+  const returnToIdle = useCallback(() => setScreen({ kind: "idle" }), []);
+
   const refreshLocalState = useCallback(async () => {
-    const [all, unbound, clubList, queued, schedule] = await Promise.all([
-      store.allMembers(),
-      store.unboundMembers(),
+    const [clubList, queued, schedule] = await Promise.all([
       store.getClubs(),
       store.outboxSize(),
       store.getSchedule(),
     ]);
-    setMembers({ all, unbound });
     setClubs(clubList);
     setUnsynced(queued);
     setMealName(deriveMeal(getNow(), schedule)?.mealPeriod ?? null);
@@ -157,6 +152,8 @@ export function StationScreen({
         // No amount of retrying fixes a dead token. Hand the tablet back to
         // the enrolment screen rather than showing a network error forever.
         reportUnenrolled();
+      } else if (outcome.kind === "already-bound") {
+        hold({ kind: "already-bound", netid: outcome.netid });
       } else {
         hold({ kind: outcome.kind });
       }
@@ -250,50 +247,19 @@ export function StationScreen({
       )}
 
       {screen.kind === "candidates" && (
-        <div className="flex flex-col items-center gap-6">
-          <p data-testid="prompt" className="text-3xl">
-            Card not recognised
-          </p>
-          <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={() =>
-                setScreen({
-                  kind: "member-picker",
-                  card: screen.token,
-                  nameParts: screen.nameParts,
-                })
-              }
-              className="rounded-xl bg-oxblood-bright px-8 py-4 text-xl text-white transition-colors duration-150 hover:bg-oxblood"
-            >
-              Member
-            </button>
-            <button
-              type="button"
-              onClick={() => setScreen({ kind: "guest-form", card: screen.token })}
-              className="rounded-xl px-8 py-4 text-xl ring-1 ring-line-strong transition-colors duration-150 hover:bg-oxblood-wash"
-            >
-              Guest
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={() => setScreen({ kind: "idle" })}
-            className="text-ink-muted underline"
-          >
-            Cancel
-          </button>
-        </div>
+        <Candidates
+          people={screen.candidates}
+          onPick={async (netid) => finish(await bindMember(screen.token, netid, deps))}
+          onGuest={() => setScreen({ kind: "guest-form", card: screen.token })}
+          onCancel={returnToIdle}
+        />
       )}
 
-      {screen.kind === "member-picker" && (
-        <MemberPicker
-          all={members.all}
-          unbound={members.unbound}
-          nameHint={screen.nameParts}
-          onCancel={() => setScreen({ kind: "idle" })}
-          onPick={async (netid) => finish(await bindMember(screen.card, netid, deps))}
-        />
+      {screen.kind === "already-bound" && (
+        <p data-testid="already-bound" className="max-w-2xl text-center text-3xl text-ink">
+          That person already has a card —{" "}
+          <span className="text-ink-secondary">please see an officer</span>
+        </p>
       )}
 
       {screen.kind === "guest-form" && (

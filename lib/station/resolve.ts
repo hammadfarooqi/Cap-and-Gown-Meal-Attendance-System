@@ -17,6 +17,8 @@ export type ScanOutcome =
       nameParts: string[];
     }
   | { kind: "failed" }
+  /** The typed netID belongs to somebody who already has a card. */
+  | { kind: "already-bound"; netid: string }
   /** The server says this tablet is not enrolled. It must be set up again. */
   | { kind: "unenrolled" };
 

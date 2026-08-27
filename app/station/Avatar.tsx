@@ -2,7 +2,19 @@ type AvatarProps = {
   name: string;
   /** Null whenever the headshot is missing — an ordinary case, not an error. */
   url: string | null;
+  /** "large" fills the check-in screen; "tile" fits several side by side. */
+  size?: "large" | "tile";
 };
+
+const SIZES = {
+  large: "h-64 w-64",
+  tile: "h-32 w-32",
+} as const;
+
+const TEXT = {
+  large: "text-6xl",
+  tile: "text-4xl",
+} as const;
 
 function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -18,16 +30,18 @@ function initials(name: string): string {
  * fallback has to look deliberate rather than broken. Counts are unaffected
  * either way.
  */
-export function Avatar({ name, url }: AvatarProps) {
+export function Avatar({ name, url, size = "large" }: AvatarProps) {
   if (url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- a blob: URL from
-      // IndexedDB; next/image cannot optimise it and would only add a round trip.
+      /* A blob: URL from IndexedDB. next/image cannot optimise it and would
+         only add a round trip. The directive has to sit on the line directly
+         above the element, or it silently applies to the comment instead. */
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={url}
         alt=""
         data-testid="avatar-photo"
-        className="h-64 w-64 rounded-full object-cover shadow-2xl ring-1 ring-white/10"
+        className={`${SIZES[size]} rounded-full object-cover shadow-2xl ring-1 ring-white/10`}
       />
     );
   }
@@ -36,7 +50,7 @@ export function Avatar({ name, url }: AvatarProps) {
     <div
       data-testid="avatar-initials"
       aria-hidden="true"
-      className="flex h-64 w-64 items-center justify-center rounded-full bg-oxblood-wash font-display text-6xl text-ink-secondary ring-1 ring-line-strong"
+      className={`flex ${SIZES[size]} items-center justify-center rounded-full bg-oxblood-wash font-display ${TEXT[size]} text-ink-secondary ring-1 ring-line-strong`}
     >
       {initials(name)}
     </div>

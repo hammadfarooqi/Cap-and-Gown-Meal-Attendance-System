@@ -158,6 +158,22 @@ describe("createGuest", () => {
     expect((await store.allMembers()).map((p) => p.netid)).toEqual(["aa1111"]);
   });
 
+  it("SAYS TO SEE AN OFFICER when that netID already has a card", async () => {
+    // The one place the officer message comes from. Reporting this as a plain
+    // failure would send staff to check the Wi-Fi for something the network
+    // cannot fix, and the person would keep retrying.
+    const store = await seeded();
+    const api = fakeApi({
+      createGuest: vi.fn().mockResolvedValue({ ok: false, status: 409 }),
+    } as Partial<StationApi>);
+
+    const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api));
+
+    expect(outcome).toEqual({ kind: "already-bound", netid: "gg9999" });
+    expect(await store.resolveToken("CARD-G")).toBeNull();
+    expect(await store.outboxSize()).toBe(0);
+  });
+
   it("fails on a rejected netid rather than inventing a person", async () => {
     const store = await seeded();
     const api = fakeApi({

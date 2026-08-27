@@ -56,6 +56,12 @@ export async function createGuest(
   if (!meal) return { kind: "no-meal" };
 
   const result = await deps.api.createGuest(deps.deviceToken, netid, homeClub, card);
+
+  // Spec section 8. That person already has a card, which means a replacement
+  // or the wrong netID — neither is safe to guess at, and neither is a
+  // network problem. Saying "could not reach the server" would send staff to
+  // check the Wi-Fi for something no network fixes.
+  if (!result.ok && result.status === 409) return { kind: "already-bound", netid };
   if (!result.ok) return { kind: "failed" };
 
   await deps.store.putPerson(result.data);

@@ -33,6 +33,13 @@ const ALICE_CARD = "%111111111111111=ALICE/ANDERSON?;1111111111111118700=?";
 const BOB_CARD = "%222222222222222=BOB/BROWN?;2222222222222228700=?";
 /** A card nobody on the roster is named on. */
 const UNKNOWN_CARD = "%999999999999999=JOHN/SMITH?;9999999999999998700=?";
+/** Carol is on the roster with no card yet — the go-live case. */
+const CAROL_CARD = "%333333333333333=CAROL/CLARK?;3333333333333338700=?";
+
+const CAROL: CachedPerson = {
+  netid: "cc3333", fullName: "Carol Clark", isMember: true,
+  homeClub: "Cap & Gown", photoPath: null,
+};
 
 const opened: { close(): void }[] = [];
 
@@ -40,7 +47,7 @@ async function seeded(): Promise<StationStore> {
   const store = await openStore();
   opened.push(store);
   await store.putBootstrap({
-    people: [ALICE, BOB],
+    people: [ALICE, BOB, CAROL],
     credentials: [
       { token: "111111111111111", netid: "aa1111" },
       { token: "222222222222222", netid: "bb2222" },
@@ -181,28 +188,47 @@ describe("StationScreen", () => {
     );
   });
 
-  it("offers the member-or-guest prompt for an unknown card", async () => {
+  it("offers no tiles and the guest route when the card names nobody", async () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
     await scan(UNKNOWN_CARD);
 
-    expect(await screen.findByTestId("prompt")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Member" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Guest" })).toBeInTheDocument();
+    expect(await screen.findByTestId("candidates")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /guest/i })).toBeInTheDocument();
+    expect(screen.queryByText("Carol Clark")).not.toBeInTheDocument();
   });
 
-  it("holds the prompt open rather than timing it out under someone", async () => {
+  it("BINDS ON THE FIRST SWIPE AND IS INSTANT ON THE SECOND", async () => {
+    // The journey all 196 members take at go-live: one tap, once, ever.
+    const store = await seeded();
+    mount(store, fakeApi());
+    await screen.findByTestId("idle");
+
+    await scan(CAROL_CARD);
+    await screen.findByTestId("candidates");
+    await userEvent.click(screen.getByRole("button", { name: /cc3333/ }));
+    expect(await screen.findByTestId("name")).toHaveTextContent("Carol Clark");
+
+    await new Promise((resolve) => setTimeout(resolve, HOLD_MS * 2));
+    await screen.findByTestId("idle");
+
+    await scan(CAROL_CARD);
+    expect(await screen.findByTestId("name")).toHaveTextContent("Carol Clark");
+    expect(screen.queryByTestId("candidates")).not.toBeInTheDocument();
+  });
+
+  it("holds the question open rather than timing it out under someone", async () => {
     // A result clears after the hold; a question waits for an answer.
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
     await scan(UNKNOWN_CARD);
-    await screen.findByTestId("prompt");
+    await screen.findByTestId("candidates");
 
     await new Promise((resolve) => setTimeout(resolve, HOLD_MS * 4));
 
-    expect(screen.getByTestId("prompt")).toBeInTheDocument();
+    expect(screen.getByTestId("candidates")).toBeInTheDocument();
   });
 
   it("CHECKS SOMEONE IN FROM THE TYPED BOX, with no reader involved", async () => {

@@ -136,20 +136,6 @@ export async function openStore() {
       return people.filter((p) => !bound.has(p.netid));
     },
 
-    /**
-     * Members with no card bound yet. Used only to order the picker — the
-     * search over allMembers() must stay available, or a member who already
-     * has a card and turns up with a replacement is unreachable.
-     */
-    async unboundMembers(): Promise<CachedPerson[]> {
-      const [people, credentials] = await Promise.all([
-        db.getAll("people"),
-        db.getAll("credentials"),
-      ]);
-      const bound = new Set(credentials.map((c) => c.netid));
-      return people.filter((p) => p.isMember && !bound.has(p.netid));
-    },
-
     async getSchedule(): Promise<MealWindow[]> {
       return ((await db.get("meta", "schedule")) as MealWindow[] | undefined) ?? [];
     },

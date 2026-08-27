@@ -6,13 +6,25 @@ const db = serviceClient();
 
 const DEVICE = "e2etest-lane";
 const PERIOD = "e2e-always-open";
+/**
+ * `card` is the 15-digit base that gets bound; `swipe` is what the reader
+ * actually emits — both tracks, with the holder's name between them. A bare
+ * number is NOT a card: without track sentinels the parser treats it as a
+ * typed identifier and takes the netID path instead.
+ */
 const PEOPLE = [
-  { netid: "e2eaaa01", full_name: "Alice Offline", card: "10000000000001" },
-  { netid: "e2ebbb02", full_name: "Bob Offline", card: "10000000000002" },
-  { netid: "e2eccc03", full_name: "Carol Offline", card: "10000000000003" },
+  { netid: "e2eaaa01", full_name: "Alice Offline", card: "100000000000001",
+    swipe: "%100000000000001=ALICE/OFFLINE?;1000000000000018700=?" },
+  { netid: "e2ebbb02", full_name: "Bob Offline", card: "100000000000002",
+    swipe: "%100000000000002=BOB/OFFLINE?;1000000000000028700=?" },
+  { netid: "e2eccc03", full_name: "Carol Offline", card: "100000000000003",
+    swipe: "%100000000000003=CAROL/OFFLINE?;1000000000000038700=?" },
 ];
 /** Known to the roster, but with no card bound — the offline member path. */
-const UNBOUND = { netid: "e2eddd04", full_name: "Dave Unbound", card: "10000000000004" };
+const UNBOUND = {
+  netid: "e2eddd04", full_name: "Dave Unbound", card: "100000000000004",
+  swipe: "%100000000000004=DAVE/UNBOUND?;1000000000000048700=?",
+};
 const NETIDS = [...PEOPLE.map((p) => p.netid), UNBOUND.netid];
 
 /**
@@ -73,9 +85,14 @@ test.afterEach(async () => {
   }
 });
 
-/** Type a card at reader speed, terminated by Enter, as a keyboard wedge does. */
-async function scanCard(page: Page, card: string) {
-  for (const ch of card) await page.keyboard.press(ch, { delay: 2 });
+/**
+ * Type a swipe at reader speed, terminated by Enter, as a keyboard wedge does.
+ *
+ * `type` rather than per-character `press`: a stripe carries %, ;, = and ?,
+ * and press() reads some of those as key NAMES rather than characters.
+ */
+async function scanCard(page: Page, swipe: string) {
+  await page.keyboard.type(swipe, { delay: 2 });
   await page.keyboard.press("Enter");
 }
 
@@ -112,7 +129,7 @@ test("1. a known card checks in with the network off, touching no network at all
   await context.setOffline(true);
   attempted.length = 0;
 
-  await scanCard(page, PEOPLE[0].card);
+  await scanCard(page, PEOPLE[0].swipe);
 
   await expect(page.getByTestId("name")).toHaveText("Alice Offline");
   await expect(page.getByTestId("checked-in")).toBeVisible();
@@ -131,7 +148,7 @@ test("2. the failure drill — scans made offline upload themselves when the net
   await context.setOffline(true);
 
   for (const person of PEOPLE) {
-    await scanCard(page, person.card);
+    await scanCard(page, person.swipe);
     await expect(page.getByTestId("name")).toHaveText(person.full_name);
   }
 
@@ -148,20 +165,19 @@ test("2. the failure drill — scans made offline upload themselves when the net
   }
 });
 
-test("3. an unknown card offline resolves through the member picker and syncs later", async ({
+test("3. an unknown card offline is confirmed from its printed name and syncs later", async ({
   page,
   context,
 }) => {
   await warmStation(page);
   await context.setOffline(true);
 
-  await scanCard(page, UNBOUND.card);
+  await scanCard(page, UNBOUND.swipe);
 
-  await expect(page.getByTestId("prompt")).toBeVisible();
-  await page.getByRole("button", { name: "Member" }).click();
-
-  // The roster is already on the tablet, so the picker works with no network.
-  await page.getByText(UNBOUND.full_name).click();
+  // The card names them and the roster is already on the tablet, so the whole
+  // match runs with no network at all.
+  await expect(page.getByTestId("candidates")).toBeVisible();
+  await page.getByRole("button", { name: new RegExp(UNBOUND.netid) }).click();
   await expect(page.getByTestId("name")).toHaveText(UNBOUND.full_name);
 
   await context.setOffline(false);
@@ -189,7 +205,7 @@ test("4. the cache survives a restart", async ({ page, context }) => {
 
   await context.setOffline(true);
 
-  await scanCard(page, PEOPLE[1].card);
+  await scanCard(page, PEOPLE[1].swipe);
   await expect(page.getByTestId("name")).toHaveText("Bob Offline");
 });
 
@@ -216,6 +232,6 @@ test("5. the app loads at all after a reload with the network off", async ({
   await expect(page.getByTestId("idle")).toBeVisible({ timeout: 15_000 });
 
   // And it is genuinely working, not merely rendering.
-  await scanCard(page, PEOPLE[2].card);
+  await scanCard(page, PEOPLE[2].swipe);
   await expect(page.getByTestId("name")).toHaveText("Carol Offline");
 });

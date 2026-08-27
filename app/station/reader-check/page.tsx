@@ -145,10 +145,8 @@ export default function ReaderCheckPage() {
 
             <div className="text-sm text-ink-secondary">
               <p>
-                Identifiers found:{" "}
-                <strong className="text-ink">
-                  {capture.parsed.tokens.join(" · ") || "none"}
-                </strong>
+                Card number:{" "}
+                <strong className="text-ink">{capture.parsed.token ?? "none"}</strong>
               </p>
               {capture.parsed.nameParts.length > 0 && (
                 <p>

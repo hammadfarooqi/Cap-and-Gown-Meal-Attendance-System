@@ -24,7 +24,7 @@ type StoredPhoto = { type: string; bytes: ArrayBuffer };
 
 export type OutboxItem =
   | { kind: "swipe"; netid: string; scannedAt: string; entryMethod: "scan" | "manual" }
-  | { kind: "binding"; tokens: string[]; netid: string };
+  | { kind: "binding"; token: string; netid: string };
 
 /** An outbox item as it comes back out, carrying the key it was stored under. */
 export type QueuedItem = OutboxItem & { id: number };
@@ -115,18 +115,25 @@ export async function openStore() {
       return (await db.getAll("people")).filter((p) => p.isMember);
     },
 
+    /** Everyone the tablet knows, members and guests alike. */
+    async allPeople(): Promise<CachedPerson[]> {
+      return db.getAll("people");
+    },
+
     /**
-     * Members with no card bound yet. Used only to order the picker — the
-     * search over allMembers() must stay available, or a member who already
-     * has a card and turns up with a replacement is unreachable.
+     * Everyone with no card bound yet, members AND guests.
+     *
+     * A guest entered by hand has a person row and no credential. When they
+     * turn up later carrying a card, the name on it should offer them the
+     * same way it offers a member — they are just as unbound.
      */
-    async unboundMembers(): Promise<CachedPerson[]> {
+    async unboundPeople(): Promise<CachedPerson[]> {
       const [people, credentials] = await Promise.all([
         db.getAll("people"),
         db.getAll("credentials"),
       ]);
       const bound = new Set(credentials.map((c) => c.netid));
-      return people.filter((p) => p.isMember && !bound.has(p.netid));
+      return people.filter((p) => !bound.has(p.netid));
     },
 
     async getSchedule(): Promise<MealWindow[]> {

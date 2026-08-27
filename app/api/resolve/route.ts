@@ -26,15 +26,10 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => null);
 
-  // A magnetic stripe carries two numbers, either of which may identify the
-  // holder, so this takes a list. `token` stays accepted for manual entry.
-  const tokens: string[] = Array.isArray(body?.tokens)
-    ? body.tokens.filter((t: unknown): t is string => typeof t === "string" && t.length > 0)
-    : typeof body?.token === "string"
-      ? [body.token]
-      : [];
+  // One token per card: track 1's 15-digit base.
+  const token = typeof body?.token === "string" && body.token.length > 0 ? body.token : null;
 
-  if (tokens.length === 0) {
+  if (!token) {
     return NextResponse.json({ error: "token required" }, { status: 400 });
   }
 
@@ -42,8 +37,7 @@ export async function POST(req: Request) {
   const { data } = await db
     .from("credentials")
     .select("token, people(netid, full_name, is_member, home_club, photo_path)")
-    .in("token", tokens)
-    .limit(1)
+    .eq("token", token)
     .maybeSingle();
 
   const person = data?.people as PersonRow | undefined;

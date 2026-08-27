@@ -1,25 +1,33 @@
 /**
  * Read a Princeton TigerCard magnetic stripe.
  *
- * Captured from a real card on 2026-08-26:
+ * The shape of a real swipe, measured 2026-08-26, shown here with a
+ * synthetic number and name:
  *
- *   %601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?
+ *   %999999000000123=ALICE/BROWNING?;9999990000001238700=?
  *
  * Both tracks arrive as ONE 54-character burst — track 1 between % and ?,
  * track 2 between ; and ?. Neither number is the netID: they are card
  * numbers, which is exactly why `credentials` maps many tokens to one person
  * rather than storing an id on the person.
  *
- * Track 2's number is track 1's with four more digits ("8700"). That looks
- * like a card issue or sequence suffix, which would change when a lost card
- * is replaced while the 15-digit base stayed put — but nobody has swiped a
- * reissued card, so this does not guess. It returns BOTH numbers and lets
- * either one identify the holder. Binding stores both; whichever survives a
- * reissue keeps working, and the other simply never matches again.
+ * Track 2's number is track 1's with four more digits ("8700"). That has the
+ * shape of a card issue or sequence suffix, which would change when a lost
+ * card is replaced while the 15-digit base stayed put. Nobody has swiped a
+ * reissued card, so that is a bet rather than a measurement — but it is the
+ * bet this makes: the 15-digit base IS the card, one token, one row.
+ *
+ * If the bet is backwards and a reissue changes the base instead, the
+ * replacement card simply does not resolve and lands in the officer path.
+ * Loud rather than silent, which is the right way round for a guess nobody
+ * can test without a reissued card in hand.
  */
+/** The four digits track 2 adds to track 1, assumed to be a card issue number. */
+const ISSUE_SUFFIX_LENGTH = 4;
+
 export type CardSwipe = {
-  /** Every candidate identifier in the swipe, longest first. */
-  tokens: string[];
+  /** The card's identifier, or null when the swipe carried none. */
+  token: string | null;
   /** The name printed on the stripe, if the card carries one. */
   nameParts: string[];
   /** True when this looked like a card rather than typed digits. */
@@ -40,23 +48,27 @@ export function parseCardSwipe(raw: string): CardSwipe {
   const trackOne = TRACK_ONE.exec(raw)?.[1];
   const trackTwo = TRACK_TWO.exec(raw)?.[1];
 
-  const numbers = [numberFrom(trackTwo), numberFrom(trackOne)]
-    .filter((n): n is string => n !== null);
+  const one = numberFrom(trackOne);
+  const two = numberFrom(trackTwo);
 
-  // Longest first, so the most specific identifier is tried before the
-  // prefix it contains.
-  const tokens = [...new Set(numbers)].sort((a, b) => b.length - a.length);
+  // Track 1's number is the base. When only track 2 is read, the assumed
+  // suffix comes back off, so both reads of one card produce one token.
+  const token =
+    one ??
+    (two && two.length > ISSUE_SUFFIX_LENGTH
+      ? two.slice(0, two.length - ISSUE_SUFFIX_LENGTH)
+      : two);
 
-  // "HAMMAD/FAROOQI". Which half is the surname varies by issuer, so both
-  // parts are kept and the member search matches on either.
+  // "ALICE/BROWNING". Which half is the surname varies by issuer, so both
+  // parts are kept and the matcher compares them as an unordered set.
   const nameParts = (trackOne?.split("=")[1] ?? "")
     .split("/")
     .map((part) => part.trim())
     .filter((part) => /^[A-Za-z][A-Za-z '.-]*$/.test(part));
 
-  if (tokens.length > 0) return { tokens, nameParts, isCard: true };
+  if (token) return { token, nameParts, isCard: true };
 
   // Not a stripe. Someone typed an id by hand, so take it as given.
   const typed = raw.trim();
-  return { tokens: typed ? [typed] : [], nameParts: [], isCard: false };
+  return { token: typed || null, nameParts: [], isCard: false };
 }

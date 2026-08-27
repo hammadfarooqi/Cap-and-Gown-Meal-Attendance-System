@@ -1,7 +1,14 @@
 # System Design: Cap & Gown Meal Attendance System
 
-**Last updated:** 2026-08-16
+**Last updated:** 2026-08-27
 **Status:** Approved design. Ready for implementation planning.
+
+> **Amended 2026-08-27 by
+> [`2026-08-26-card-identity-and-first-swipe.md`](2026-08-26-card-identity-and-first-swipe.md).**
+> That document changes A1, adds A8, and rewrites how a card is bound to a
+> person. Where the two disagree, it wins. The paragraphs it supersedes are
+> marked below rather than deleted, because the reasoning that was replaced
+> is part of why the replacement looks the way it does.
 **Go-live:** 2026-09-02 (first day of classes, first meals)
 **On-site test:** 2026-08-30
 
@@ -59,11 +66,18 @@ deadline in February**, not just the October one.
 These are decisions taken deliberately. Each one can be revisited, but the
 design leans on them.
 
-**A1 — Credential capture. CLOSED 2026-08-26.** A magnetic-stripe reader,
-acting as a keyboard wedge. A real TigerCard produces:
+**A1 — Credential capture. CLOSED 2026-08-26, amended 2026-08-27.** Only ONE
+number is now stored: track 1's 15-digit base. Track 2 is that number plus a
+four-digit suffix, and the bet is that the base survives a card reissue. The
+bullet below about binding both numbers is superseded — see the amending spec,
+assumption A1.
+
+A magnetic-stripe reader,
+acting as a keyboard wedge. A real TigerCard produces this shape (the number
+and name below are synthetic; the structure and the timings are measured):
 
 ```
-%601621920380463=HAMMAD/FAROOQI?;6016219203804638700=?
+%999999000000123=ALICE/BROWNING?;9999990000001238700=?
 
 Nine swipes, 2026-08-26:
   54 characters every time · exactly 1 Enter every time
@@ -124,7 +138,7 @@ burst where every gap sits just under 50 ms would pass the gap test but fail
 this one, which is what sustained fast typing looks like.
 
 Testing the burst — not merely testing for a non-empty buffer — is what stops a
-human typing `hf4888` by hand from firing a spurious scan of the last character
+human typing `ab1234` by hand from firing a spurious scan of the last character
 they happened to type within the gap window. When the test fails, the handler
 does nothing and lets the event flow through, so the manual entry box submits
 normally.
@@ -136,6 +150,11 @@ than a laptop.
 **A3 — netID is the canonical identity.** Every person, member or guest, is one
 record keyed by netID. Card tokens are separate records that point at a netID,
 **many tokens to one netID**.
+
+> **Superseded 2026-08-27.** One token per card and one card per person, with
+> a unique index on `credentials.netid` enforcing it. A member turning up with
+> a second card is now an officer's problem rather than another row. See the
+> amending spec, section 8.
 
 **A4 — Repeat scans are idempotent.** Any scan after the first in the same meal
 shows the identical success screen. The student sees no difference. The database
@@ -157,14 +176,22 @@ is worse than the lost count.
 
 **A7 — Meal swaps are out of scope.** Confirmed with the business manager.
 
+**A8 — A name narrows; it never identifies. Added 2026-08-27.** The stripe
+carries the holder's name, and it is used to shortlist people — never to check
+one in. Two members share a full name and eight surnames collide, so a name
+cannot be a key; a card also carries the name of any student, not only a
+member. A name match produces candidates, a human always chooses among them,
+and the choice is shown with a netID so it can be checked. Full reasoning in
+the amending spec, section 4.
+
 ---
 
 ## 4. Open questions
 
 | ID | Question | Closes by | Blocks |
 |---|---|---|---|
-| ~~O1~~ | ~~What token does the reader emit?~~ | **Closed 2026-08-26** — magstripe sends both tracks in one 54-character burst; neither number is the netID | `credentials` STAYS: many tokens to one person |
-| O2 | Which directory API resolves a netID to a name — TigerBook or Princeton LDAP? Does it work from a serverless function? | Before guest flow is built | Guest entry |
+| ~~O1~~ | ~~What token does the reader emit?~~ | **Closed 2026-08-26** — magstripe sends both tracks in one 54-character burst; neither number is the netID | `credentials` stays a separate table; ONE token per person as of 2026-08-27 |
+| O2 | Which directory API resolves a netID to a name — TigerBook or Princeton LDAP? Does it work from a serverless function? | **Narrowed 2026-08-27** — a guest who SWIPES is now named from the stripe, so this only affects a guest entered by hand | A hand-typed guest's name only |
 | O3 | Exact meal windows for every day of the week | Next business-manager call | Seed data only |
 | ~~O4~~ | ~~Actual member count~~ | **Closed 2026-08-16** — ~200 autumn, ~300 spring | — |
 | O5 | **Headshots.** The roster (names and netIDs) is in hand. The photos are not | Before 2026-08-30 — **highest slip risk** | The headshot feature only |
@@ -173,6 +200,12 @@ is worse than the lost count.
 None of these block the build. O5 is the item most likely to slip, because it
 depends on a club officer in August.
 
+**O5 is further from blocking than it was.** As of 2026-08-27 the first swipe
+of an unbound card shows candidate tiles carrying a name AND a netID. Two
+members share a full name, so they also share their initials — the netID, not
+the photo, is what separates them. Headshots make that screen faster to read;
+they are not what makes it correct.
+
 **O5 does not block go-live.** If the headshots do not arrive in time, the
 station shows the student's name against a placeholder. Every count is still
 correct. The photo is the premium touch, not the function.
@@ -180,7 +213,7 @@ correct. The photo is the premium touch, not the function.
 **O6 is about naming, not size.** Resolution and file size do not matter, since
 the import pipeline re-encodes everything to a 400×400 WebP regardless of what
 arrives. What matters is whether each file can be matched to a netID. Files
-named `hf4888.jpg` import themselves. Files named `Hammad Farooqi.jpg` need a
+named `ab1234.jpg` import themselves. Files named `Alice Browning.jpg` need a
 name-to-netID match, which will fail on duplicates, nicknames, and middle names.
 Files named `IMG_4471.jpg` cannot be matched at all and would need 300 manual
 assignments. Ask the business manager how the files are named **before** the
@@ -496,8 +529,22 @@ one sync cycle, with no polling and no push infrastructure.**
 In case 4, a tablet binds a token offline. If the server already had that token
 bound to someone else, they conflict at sync. **The server keeps its existing
 binding and records the conflict.** No further machinery is built, because the
-conflict can only occur if the operator picked the wrong name from a list that
+conflict can only occur if the person tapped the wrong tile on a screen that
 had the right one on it. That is human error, and no protocol prevents it.
+
+**Amended 2026-08-27.** A second conflict now exists and is more likely than
+that one: the person being bound already has a card. Each tablet decides who
+is unbound from its own cached roster, refreshed only at bootstrap, so two
+lanes can both believe the same person has no card. Both `/api/bind` and
+`/api/guests` answer **409**, and a unique index on `credentials.netid` makes
+it true underneath them — which is the part that matters, because no
+application check can see the race. The losing tablet drops the binding from
+its outbox rather than retrying it forever.
+
+There is no tool yet for an officer to move or remove a binding. Until there
+is, a contested card is resolved by hand against the database. That is
+deliberate: neither conflict can occur before a card has been bound at all, so
+neither can happen in the first week of service.
 
 ---
 
@@ -614,7 +661,7 @@ Two known limitations, both accepted:
 
 ### Photo upload
 
-Bulk select or a zip, with files named by netID (`hf4888.jpg`). The server
+Bulk select or a zip, with files named by netID (`ab1234.jpg`). The server
 resizes each to roughly 400×400 and converts to WebP, **targeting about 40 KB
 per photo**. At the spring peak of 300 members that keeps the whole set near
 12 MB.

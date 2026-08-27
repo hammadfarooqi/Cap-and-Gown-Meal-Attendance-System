@@ -23,16 +23,34 @@ const BOB: CachedPerson = {
   homeClub: "Cap & Gown", photoPath: null,
 };
 
+/**
+ * Real stripe shapes, not bare numbers.
+ *
+ * The parser only treats a burst as a card when it carries track sentinels;
+ * anything else is a typed identifier and takes the netID path instead.
+ */
+const ALICE_CARD = "%111111111111111=ALICE/ANDERSON?;1111111111111118700=?";
+const BOB_CARD = "%222222222222222=BOB/BROWN?;2222222222222228700=?";
+/** A card nobody on the roster is named on. */
+const UNKNOWN_CARD = "%999999999999999=JOHN/SMITH?;9999999999999998700=?";
+/** Carol is on the roster with no card yet — the go-live case. */
+const CAROL_CARD = "%333333333333333=CAROL/CLARK?;3333333333333338700=?";
+
+const CAROL: CachedPerson = {
+  netid: "cc3333", fullName: "Carol Clark", isMember: true,
+  homeClub: "Cap & Gown", photoPath: null,
+};
+
 const opened: { close(): void }[] = [];
 
 async function seeded(): Promise<StationStore> {
   const store = await openStore();
   opened.push(store);
   await store.putBootstrap({
-    people: [ALICE, BOB],
+    people: [ALICE, BOB, CAROL],
     credentials: [
-      { token: "11111111111111", netid: "aa1111" },
-      { token: "22222222222222", netid: "bb2222" },
+      { token: "111111111111111", netid: "aa1111" },
+      { token: "222222222222222", netid: "bb2222" },
     ],
     schedule: SCHEDULE,
     clubs: ["Cap & Gown", "Cottage", "None"],
@@ -68,6 +86,7 @@ async function scan(card: string) {
  * call inside the component hangs and the test times out rather than failing.
  */
 const HOLD_MS = 60;
+const TAKEOVER_MS = 300;
 
 const mount = (store: StationStore, api: StationApi, now = DURING_LUNCH) =>
   render(
@@ -77,6 +96,7 @@ const mount = (store: StationStore, api: StationApi, now = DURING_LUNCH) =>
       deviceToken="tok"
       now={() => now}
       holdMs={HOLD_MS}
+      takeoverMs={TAKEOVER_MS}
       skipWarm
     />,
   );
@@ -97,7 +117,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
 
     expect(await screen.findByTestId("name")).toHaveTextContent("Alice Anderson");
     expect(screen.getByTestId("checked-in")).toHaveTextContent("Checked in for lunch");
@@ -108,7 +128,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
 
     expect(await screen.findByTestId("avatar-initials")).toHaveTextContent("AA");
   });
@@ -117,7 +137,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
     await screen.findByTestId("name");
 
     await waitFor(() => expect(screen.getByTestId("idle")).toBeInTheDocument(), {
@@ -131,10 +151,10 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
     expect(await screen.findByTestId("name")).toHaveTextContent("Alice Anderson");
 
-    await scan("22222222222222");
+    await scan(BOB_CARD);
 
     await waitFor(() =>
       expect(screen.getByTestId("name")).toHaveTextContent("Bob Brown"),
@@ -146,7 +166,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi(), BETWEEN_MEALS);
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
 
     expect(await screen.findByTestId("no-meal")).toBeInTheDocument();
   });
@@ -163,44 +183,64 @@ describe("StationScreen", () => {
     mount(store, fakeApi({ sync: vi.fn().mockResolvedValue({ ok: false, status: null }) } as Partial<StationApi>));
     await screen.findByTestId("idle");
 
-    await scan("11111111111111");
+    await scan(ALICE_CARD);
 
     await waitFor(() =>
       expect(screen.getByTestId("unsynced")).toHaveTextContent("1 waiting to sync"),
     );
   });
 
-  it("offers the member-or-guest prompt for an unknown card", async () => {
+  it("offers no tiles and the guest route when the card names nobody", async () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("99999999999999");
+    await scan(UNKNOWN_CARD);
 
-    expect(await screen.findByTestId("prompt")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Member" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Guest" })).toBeInTheDocument();
+    expect(await screen.findByTestId("candidates")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /guest/i })).toBeInTheDocument();
+    expect(screen.queryByText("Carol Clark")).not.toBeInTheDocument();
   });
 
-  it("holds the prompt open rather than timing it out under someone", async () => {
+  it("BINDS ON THE FIRST SWIPE AND IS INSTANT ON THE SECOND", async () => {
+    // The journey all 196 members take at go-live: one tap, once, ever.
+    const store = await seeded();
+    mount(store, fakeApi());
+    await screen.findByTestId("idle");
+
+    await scan(CAROL_CARD);
+    await screen.findByTestId("candidates");
+    await userEvent.click(screen.getByRole("button", { name: /cc3333/ }));
+    expect(await screen.findByTestId("name")).toHaveTextContent("Carol Clark");
+
+    await new Promise((resolve) => setTimeout(resolve, HOLD_MS * 2));
+    await screen.findByTestId("idle");
+
+    await scan(CAROL_CARD);
+    expect(await screen.findByTestId("name")).toHaveTextContent("Carol Clark");
+    expect(screen.queryByTestId("candidates")).not.toBeInTheDocument();
+  });
+
+  it("holds the question open rather than timing it out under someone", async () => {
     // A result clears after the hold; a question waits for an answer.
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan("99999999999999");
-    await screen.findByTestId("prompt");
+    await scan(UNKNOWN_CARD);
+    await screen.findByTestId("candidates");
 
     await new Promise((resolve) => setTimeout(resolve, HOLD_MS * 4));
 
-    expect(screen.getByTestId("prompt")).toBeInTheDocument();
+    expect(screen.getByTestId("candidates")).toBeInTheDocument();
   });
 
   it("CHECKS SOMEONE IN FROM THE TYPED BOX, with no reader involved", async () => {
     // The whole point: the club can serve a meal with a broken scanner, and
-    // the developer can test without hardware.
+    // the developer can test without hardware. The box takes a netID - the
+    // person's identity - not a card number, so nothing gets bound.
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "11111111111111");
+    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "aa1111");
     await userEvent.click(screen.getByRole("button", { name: "Enter" }));
 
     expect(await screen.findByTestId("name")).toHaveTextContent("Alice Anderson");
@@ -211,7 +251,7 @@ describe("StationScreen", () => {
     mount(store, fakeApi({ sync: vi.fn().mockResolvedValue({ ok: false, status: null }) } as Partial<StationApi>));
     await screen.findByTestId("idle");
 
-    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "11111111111111");
+    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "aa1111");
     await userEvent.click(screen.getByRole("button", { name: "Enter" }));
     await screen.findByTestId("name");
 
@@ -238,7 +278,7 @@ describe("StationScreen", () => {
     await screen.findByTestId("idle");
 
     const box = screen.getByLabelText("Enter an ID by hand");
-    await userEvent.type(box, "11111111111111");
+    await userEvent.type(box, "aa1111");
     await userEvent.click(screen.getByRole("button", { name: "Enter" }));
     await screen.findByTestId("name");
 
@@ -252,7 +292,7 @@ describe("StationScreen", () => {
     } as Partial<StationApi>));
     await screen.findByTestId("idle");
 
-    await scan("99999999999999");
+    await scan(UNKNOWN_CARD);
 
     expect(await screen.findByTestId("failed")).toHaveTextContent("not counted");
   });
@@ -277,9 +317,83 @@ describe("StationScreen", () => {
     );
     await screen.findByTestId("idle");
 
-    await scan("99999999999999");
+    await scan(UNKNOWN_CARD);
 
     await waitFor(() => expect(onUnenrolled).toHaveBeenCalledOnce());
     expect(screen.queryByTestId("failed")).not.toBeInTheDocument();
+  });
+
+  describe("what replaces the lane and what sits under it", () => {
+    it("KEEPS THE LANE LIVE UNDER A CHECK-IN, so the next person can swipe", async () => {
+      // The point of the whole layout: a result is a notice, not a takeover.
+      // The queue must not wait three seconds for the screen to clear.
+      mount(await seeded(), fakeApi());
+      await screen.findByTestId("idle");
+
+      await scan(ALICE_CARD);
+      await screen.findByTestId("name");
+
+      expect(screen.getByTestId("idle")).toBeInTheDocument();
+      expect(screen.getByLabelText("Enter an ID by hand")).toBeInTheDocument();
+    });
+
+    it("TAKES THE LANE for a question, because it is waiting on a person", async () => {
+      mount(await seeded(), fakeApi());
+      await screen.findByTestId("idle");
+
+      await scan(CAROL_CARD);
+      await screen.findByTestId("candidates");
+
+      expect(screen.queryByTestId("idle")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Enter an ID by hand")).not.toBeInTheDocument();
+    });
+
+    it("lets the NEXT SCAN take over a question nobody answered", async () => {
+      // Somebody walks off mid-decision. The lane must never jam behind them.
+      mount(await seeded(), fakeApi());
+      await screen.findByTestId("idle");
+
+      await scan(CAROL_CARD);
+      await screen.findByTestId("candidates");
+
+      await scan(ALICE_CARD);
+
+      expect(await screen.findByTestId("name")).toHaveTextContent("Alice Anderson");
+      expect(screen.queryByTestId("candidates")).not.toBeInTheDocument();
+    });
+
+    it("gives up on an unanswered question and gives the lane back", async () => {
+      mount(await seeded(), fakeApi());
+      await screen.findByTestId("idle");
+
+      await scan(CAROL_CARD);
+      await screen.findByTestId("candidates");
+
+      await waitFor(() => expect(screen.getByTestId("idle")).toBeInTheDocument(), {
+        timeout: TAKEOVER_MS * 4,
+      });
+    });
+
+    it("HOLDS THE OFFICER MESSAGE LONGER than an ordinary notice", async () => {
+      // It asks nothing at the tablet, so it is a notice — but it is an
+      // instruction somebody has to read, and three seconds does not do that.
+      const store = await seeded();
+      mount(store, fakeApi({
+        createGuest: vi.fn().mockResolvedValue({ ok: false, status: 409 }),
+      } as Partial<StationApi>));
+      await screen.findByTestId("idle");
+
+      await scan(UNKNOWN_CARD);
+      await userEvent.click(await screen.findByRole("button", { name: /guest/i }));
+      await userEvent.type(screen.getByLabelText("Guest netID"), "gg9999");
+      await userEvent.selectOptions(screen.getByLabelText("Your club"), "Cottage");
+      await userEvent.click(screen.getByRole("button", { name: /check in/i }));
+
+      await screen.findByTestId("already-bound");
+
+      // An ordinary notice would be gone by now.
+      await new Promise((resolve) => setTimeout(resolve, HOLD_MS * 4));
+      expect(screen.getByTestId("already-bound")).toBeInTheDocument();
+    });
   });
 });

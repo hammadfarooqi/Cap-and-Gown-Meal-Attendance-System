@@ -17,7 +17,11 @@ const okResult = <T,>(data: T) =>
 
 function fakeApi(over: Partial<StationApi> = {}): StationApi {
   return {
-    bootstrap: vi.fn(),
+    // A flush now compares the version stamps its responses carried, which
+    // can re-warm the cache. Give that a real answer rather than undefined.
+    bootstrap: vi
+      .fn()
+      .mockResolvedValue(okResult({ people: [], credentials: [], schedule: [], clubs: [] })),
     resolve: vi.fn(),
     bind: vi.fn().mockResolvedValue(okResult({ token: "x", netid: "y" })),
     createGuest: vi.fn(),
@@ -89,12 +93,12 @@ describe("flushOutbox", () => {
   it("sends bindings as well as swipes", async () => {
     const store = await open();
     const api = fakeApi();
-    await store.enqueue({ kind: "binding", tokens: ["CARD-9"], netid: "aa1111" });
+    await store.enqueue({ kind: "binding", token: "CARD-9", netid: "aa1111" });
     await store.enqueue(swipe("aa1111"));
 
     await flushOutbox({ store, api, deviceToken: DEVICE_TOKEN });
 
-    expect(api.bind).toHaveBeenCalledWith(DEVICE_TOKEN, ["CARD-9"], "aa1111");
+    expect(api.bind).toHaveBeenCalledWith(DEVICE_TOKEN, "CARD-9", "aa1111");
     expect(api.sync).toHaveBeenCalledOnce();
     expect(await store.outboxSize()).toBe(0);
   });
@@ -116,7 +120,7 @@ describe("flushOutbox", () => {
     const api = fakeApi({
       bind: vi.fn().mockResolvedValue({ ok: false, status: 409 }),
     } as Partial<StationApi>);
-    await store.enqueue({ kind: "binding", tokens: ["CARD-9"], netid: "aa1111" });
+    await store.enqueue({ kind: "binding", token: "CARD-9", netid: "aa1111" });
 
     await flushOutbox({ store, api, deviceToken: DEVICE_TOKEN });
 
@@ -128,7 +132,7 @@ describe("flushOutbox", () => {
     const api = fakeApi({
       bind: vi.fn().mockResolvedValue({ ok: false, status: null }),
     } as Partial<StationApi>);
-    await store.enqueue({ kind: "binding", tokens: ["CARD-9"], netid: "aa1111" });
+    await store.enqueue({ kind: "binding", token: "CARD-9", netid: "aa1111" });
 
     await flushOutbox({ store, api, deviceToken: DEVICE_TOKEN });
 
@@ -140,7 +144,7 @@ describe("flushOutbox", () => {
     const api = fakeApi({
       bind: vi.fn().mockResolvedValue({ ok: false, status: null }),
     } as Partial<StationApi>);
-    await store.enqueue({ kind: "binding", tokens: ["CARD-9"], netid: "aa1111" });
+    await store.enqueue({ kind: "binding", token: "CARD-9", netid: "aa1111" });
     await store.enqueue(swipe("aa1111"));
 
     await flushOutbox({ store, api, deviceToken: DEVICE_TOKEN });
@@ -195,5 +199,48 @@ describe("startOutboxLoop", () => {
 
     expect((api.sync as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsWhenStopped);
     expect(await store.outboxSize()).toBe(1);
+  });
+
+  describe("learning that the roster moved", () => {
+    it("COMPARES THE VERSION STAMPS a response carried", async () => {
+      // The whole no-polling design rests on this. It was written, tested in
+      // isolation, and never called from anywhere — so a running tablet only
+      // refreshed on page load, and a card bound on another lane stayed
+      // invisible to it for the rest of service.
+      const store = await open();
+      await store.enqueue({
+        kind: "swipe", netid: "aa1111",
+        scannedAt: "2026-09-02T16:00:00Z", entryMethod: "scan",
+      });
+      const refresh = vi.fn().mockResolvedValue(true);
+
+      await flushOutbox({ store, api: fakeApi(), deviceToken: DEVICE_TOKEN, refresh });
+
+      expect(refresh).toHaveBeenCalledOnce();
+      expect(refresh.mock.calls[0][1]).toEqual({ roster: 1, schedule: 1 });
+    });
+
+    it("does not bother when nothing was sent", async () => {
+      const store = await open();
+      const refresh = vi.fn();
+
+      await flushOutbox({ store, api: fakeApi(), deviceToken: DEVICE_TOKEN, refresh });
+
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it("DROPS A BINDING LEFT BY AN OLDER BUILD instead of retrying it forever", async () => {
+      // Those carried `tokens: string[]`, not `token`. Sending undefined
+      // earns a 400, which is not a status the queue drops, so the item would
+      // be retried every few seconds for the rest of the tablet's life.
+      const store = await open();
+      await store.enqueue({ kind: "binding", netid: "aa1111" } as never);
+      const api = fakeApi();
+
+      await flushOutbox({ store, api, deviceToken: DEVICE_TOKEN, refresh: vi.fn() });
+
+      expect(api.bind).not.toHaveBeenCalled();
+      expect(await store.outboxSize()).toBe(0);
+    });
   });
 });

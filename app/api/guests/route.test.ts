@@ -10,6 +10,7 @@ const GUEST = "guest001";
 const EXMEMBER = "exmem001";
 const MEMBER = "curmem01";
 const CARD = "GUEST-CARD-1";
+const CARD2 = "GUEST-CARD-2";
 let token: string;
 
 beforeAll(async () => {
@@ -18,7 +19,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await db.from("credentials").delete().eq("token", CARD);
+  await db.from("credentials").delete().in("token", [CARD, CARD2]);
   await db.from("people").delete().in("netid", [GUEST, EXMEMBER, MEMBER]);
 
   // A departed member: still a person, no longer a member, no club.
@@ -32,7 +33,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await db.from("credentials").delete().eq("token", CARD);
+  await db.from("credentials").delete().in("token", [CARD, CARD2]);
   await db.from("people").delete().in("netid", [GUEST, EXMEMBER, MEMBER]);
 
   const { data } = await db.from("devices").select("id").eq("name", DEVICE);
@@ -120,6 +121,67 @@ describe("POST /api/guests", () => {
     const row = await personRow(MEMBER);
     expect(row!.is_member).toBe(true);
     expect(row!.home_club).toBe("Cap & Gown");
+  });
+
+  it("BINDS A MEMBER WHO TYPES THEIR NETID HERE, and returns them as a member", async () => {
+    // Spec case 8, and the escape hatch for every name the card matcher
+    // misses — a card printed BILL/WARD against a roster saying William Ward.
+    // They tap "No, I'm a guest", type their netID, and must come back a
+    // member with their card bound, not a guest.
+    const res = await POST(request({ netid: MEMBER, homeClub: "Cap & Gown", token: CARD }, token));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.isMember).toBe(true);
+
+    const { data } = await db
+      .from("credentials").select("netid").eq("token", CARD).maybeSingle();
+    expect(data!.netid).toBe(MEMBER);
+  });
+
+  it("REFUSES when the typed netID already has a card", async () => {
+    // The one place the officer message comes from. Somebody typed a netID
+    // and that person is already bound — which is a replacement card, or the
+    // wrong netID, and neither is safe to guess at.
+    await db.from("credentials").insert({ token: CARD, netid: MEMBER });
+
+    const res = await POST(request({ netid: MEMBER, homeClub: "Cottage", token: CARD2 }, token));
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/already has a card/i);
+
+    // The card they already have must be untouched, and the new one unwritten.
+    const { data } = await db
+      .from("credentials").select("token").eq("netid", MEMBER);
+    expect(data!.map((r) => r.token)).toEqual([CARD]);
+  });
+
+  it("NAMES A NEW GUEST FROM THE CARD instead of their netID", async () => {
+    // O2 is still a stub, so without this the guest ledger is a column of
+    // logins. The stripe already carries their name.
+    const res = await POST(
+      request({ netid: GUEST, homeClub: "Cottage", token: CARD, cardName: ["ALICE", "BROWNING"] }, token),
+    );
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.fullName).toBe("Alice Browning");
+  });
+
+  it("NEVER OVERWRITES AN EXISTING PERSON'S NAME", async () => {
+    // A card name is used only when creating somebody. A member whose card is
+    // mis-read into this flow must not be renamed by their own stripe, and a
+    // departed member keeps the name their swipe history hangs off.
+    const res = await POST(
+      request({ netid: MEMBER, homeClub: "Cottage", token: CARD, cardName: ["WRONG", "NAME"] }, token),
+    );
+
+    expect((await res.json()).data.fullName).toBe("Current Member");
+  });
+
+  it("still falls back to the netID when no card name is sent", async () => {
+    // A typed netID carries no name at all. That case still wants O2.
+    const res = await POST(request({ netid: GUEST, homeClub: "Cottage" }, token));
+
+    expect((await res.json()).data.fullName).toBe(GUEST);
   });
 
   it("normalises a netid typed in capitals", async () => {

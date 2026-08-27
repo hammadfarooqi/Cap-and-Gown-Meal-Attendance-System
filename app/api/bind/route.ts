@@ -25,17 +25,11 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const netid = typeof body?.netid === "string" ? body.netid : null;
 
-  // Both stripe numbers are bound at once. One of them is probably a card
-  // issue number that changes on reissue; binding both means whichever
-  // survives keeps working, and the other simply stops matching.
-  const tokens: string[] = Array.isArray(body?.tokens)
-    ? body.tokens.filter((t: unknown): t is string => typeof t === "string" && t.length > 0)
-    : typeof body?.token === "string"
-      ? [body.token]
-      : [];
+  // One token per card: track 1's 15-digit base.
+  const token = typeof body?.token === "string" && body.token.length > 0 ? body.token : null;
 
-  if (tokens.length === 0 || !netid) {
-    return NextResponse.json({ error: "tokens and netid required" }, { status: 400 });
+  if (!token || !netid) {
+    return NextResponse.json({ error: "token and netid required" }, { status: 400 });
   }
 
   const db = serviceClient();
@@ -50,29 +44,39 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unknown netid" }, { status: 404 });
   }
 
-  // Anything already bound elsewhere blocks the whole request, so a swipe
-  // never half-binds. Spec section 8: the server keeps its own answer.
-  const { data: clashes } = await db
+  // One person, one card. The unique index on credentials.netid enforces this
+  // underneath, but it would surface as a 500 — and the tablet needs an answer
+  // it can put on screen for the person standing there. Spec section 8.
+  const { data: heldByPerson } = await db
     .from("credentials")
-    .select("token, netid")
-    .in("token", tokens);
+    .select("token")
+    .eq("netid", netid)
+    .maybeSingle();
 
-  const conflicting = (clashes ?? []).find((row) => row.netid !== netid);
-  if (conflicting) {
+  if (heldByPerson && heldByPerson.token !== token) {
     return NextResponse.json(
-      { error: "token already bound to a different person", boundTo: conflicting.netid },
+      { error: "person already has a card", boundTo: netid },
       { status: 409 },
     );
   }
 
-  const fresh = tokens.filter(
-    (token) => !(clashes ?? []).some((row) => row.token === token),
-  );
+  // Spec section 8: the server keeps its own answer. An offline tablet that
+  // disagrees about whose card this is does not get to overwrite it.
+  const { data: existing } = await db
+    .from("credentials")
+    .select("netid")
+    .eq("token", token)
+    .maybeSingle();
 
-  if (fresh.length > 0) {
-    const { error } = await db
-      .from("credentials")
-      .insert(fresh.map((token) => ({ token, netid })));
+  if (existing && existing.netid !== netid) {
+    return NextResponse.json(
+      { error: "token already bound to a different person", boundTo: existing.netid },
+      { status: 409 },
+    );
+  }
+
+  if (!existing) {
+    const { error } = await db.from("credentials").insert({ token, netid });
 
     // A duplicate here means a concurrent identical bind, which is success.
     if (error && error.code !== UNIQUE_VIOLATION) {
@@ -81,5 +85,5 @@ export async function POST(req: Request) {
     await bumpVersion("roster");
   }
 
-  return NextResponse.json(await envelope({ tokens, netid }));
+  return NextResponse.json(await envelope({ token, netid }));
 }

@@ -63,7 +63,7 @@ afterEach(async () => {
 describe("bindMember", () => {
   it("checks the member in and caches the card locally", async () => {
     const store = await seeded();
-    const outcome = await bindMember(["CARD-NEW"], "aa1111", deps(store, fakeApi()));
+    const outcome = await bindMember("CARD-NEW", "aa1111", deps(store, fakeApi()));
 
     expect(outcome).toEqual({ kind: "checked-in", person: MEMBER, mealPeriod: "lunch" });
     expect((await store.resolveToken("CARD-NEW"))?.netid).toBe("aa1111");
@@ -76,7 +76,7 @@ describe("bindMember", () => {
       createGuest: vi.fn().mockRejectedValue(new Error("offline")),
     } as Partial<StationApi>);
 
-    const outcome = await bindMember(["CARD-NEW"], "aa1111", deps(store, api));
+    const outcome = await bindMember("CARD-NEW", "aa1111", deps(store, api));
 
     expect(outcome.kind).toBe("checked-in");
     expect(api.bind).not.toHaveBeenCalled();
@@ -84,7 +84,7 @@ describe("bindMember", () => {
 
   it("queues both the binding and the swipe for later", async () => {
     const store = await seeded();
-    await bindMember(["CARD-NEW"], "aa1111", deps(store, fakeApi()));
+    await bindMember("CARD-NEW", "aa1111", deps(store, fakeApi()));
 
     const kinds = (await store.peekOutbox()).map((i) => i.kind);
     expect(kinds).toContain("binding");
@@ -93,14 +93,14 @@ describe("bindMember", () => {
 
   it("makes the next scan of that card a plain cache hit", async () => {
     const store = await seeded();
-    await bindMember(["CARD-NEW"], "aa1111", deps(store, fakeApi()));
+    await bindMember("CARD-NEW", "aa1111", deps(store, fakeApi()));
 
     expect((await store.resolveToken("CARD-NEW"))?.fullName).toBe("Cached Member");
   });
 
   it("refuses a netid that is not in the cached roster", async () => {
     const store = await seeded();
-    const outcome = await bindMember(["CARD-NEW"], "ghost999", deps(store, fakeApi()));
+    const outcome = await bindMember("CARD-NEW", "ghost999", deps(store, fakeApi()));
 
     expect(outcome).toEqual({ kind: "failed" });
     expect(await store.outboxSize()).toBe(0);
@@ -108,7 +108,7 @@ describe("bindMember", () => {
 
   it("reports no meal outside every window", async () => {
     const store = await seeded();
-    const outcome = await bindMember(["CARD-NEW"], "aa1111", {
+    const outcome = await bindMember("CARD-NEW", "aa1111", {
       ...deps(store, fakeApi()),
       now: () => new Date("2026-09-02T19:00:00.000Z"),
     });
@@ -123,12 +123,23 @@ describe("createGuest", () => {
     const store = await seeded();
     const api = fakeApi();
 
-    const outcome = await createGuest(["CARD-G"], "gg9999", "Cottage", deps(store, api));
+    const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api));
 
     expect(outcome).toEqual({ kind: "checked-in", person: GUEST, mealPeriod: "lunch" });
-    expect(api.createGuest).toHaveBeenCalledWith(DEVICE_TOKEN, "gg9999", "Cottage", ["CARD-G"]);
+    expect(api.createGuest).toHaveBeenCalledWith(DEVICE_TOKEN, "gg9999", "Cottage", "CARD-G", []);
     expect((await store.resolveToken("CARD-G"))?.netid).toBe("gg9999");
     expect(await store.outboxSize()).toBe(1);
+  });
+
+  it("PASSES THE CARD'S NAME THROUGH, so a guest is not recorded as a netID", async () => {
+    const store = await seeded();
+    const api = fakeApi();
+
+    await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api), ["ALICE", "BROWNING"]);
+
+    expect(api.createGuest).toHaveBeenCalledWith(
+      DEVICE_TOKEN, "gg9999", "Cottage", "CARD-G", ["ALICE", "BROWNING"],
+    );
   });
 
   it("IS ABANDONED WHEN THE SERVER IS UNREACHABLE — an accepted, deliberate loss", async () => {
@@ -140,7 +151,7 @@ describe("createGuest", () => {
       createGuest: vi.fn().mockResolvedValue({ ok: false, status: null }),
     } as Partial<StationApi>);
 
-    const outcome = await createGuest(["CARD-G"], "gg9999", "Cottage", deps(store, api));
+    const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api));
 
     expect(outcome).toEqual({ kind: "failed" });
     expect(await store.outboxSize()).toBe(0);
@@ -152,10 +163,26 @@ describe("createGuest", () => {
       createGuest: vi.fn().mockResolvedValue({ ok: false, status: null }),
     } as Partial<StationApi>);
 
-    await createGuest(["CARD-G"], "gg9999", "Cottage", deps(store, api));
+    await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api));
 
     expect(await store.resolveToken("CARD-G")).toBeNull();
     expect((await store.allMembers()).map((p) => p.netid)).toEqual(["aa1111"]);
+  });
+
+  it("SAYS TO SEE AN OFFICER when that netID already has a card", async () => {
+    // The one place the officer message comes from. Reporting this as a plain
+    // failure would send staff to check the Wi-Fi for something the network
+    // cannot fix, and the person would keep retrying.
+    const store = await seeded();
+    const api = fakeApi({
+      createGuest: vi.fn().mockResolvedValue({ ok: false, status: 409 }),
+    } as Partial<StationApi>);
+
+    const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api));
+
+    expect(outcome).toEqual({ kind: "already-bound", netid: "gg9999" });
+    expect(await store.resolveToken("CARD-G")).toBeNull();
+    expect(await store.outboxSize()).toBe(0);
   });
 
   it("fails on a rejected netid rather than inventing a person", async () => {
@@ -164,13 +191,13 @@ describe("createGuest", () => {
       createGuest: vi.fn().mockResolvedValue({ ok: false, status: 400 }),
     } as Partial<StationApi>);
 
-    expect(await createGuest(["CARD-G"], "bad netid", "Cottage", deps(store, api)))
+    expect(await createGuest("CARD-G", "bad netid", "Cottage", deps(store, api)))
       .toEqual({ kind: "failed" });
   });
 
   it("works without a card, for a guest entered by hand", async () => {
     const store = await seeded();
-    const outcome = await createGuest([], "gg9999", "Cottage", deps(store, fakeApi()));
+    const outcome = await createGuest(null, "gg9999", "Cottage", deps(store, fakeApi()));
 
     expect(outcome.kind).toBe("checked-in");
     expect(await store.outboxSize()).toBe(1);

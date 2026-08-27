@@ -1,5 +1,6 @@
 import { deriveMeal } from "@/lib/meals/derive";
 import { parseCardSwipe } from "@/lib/scan/card";
+import { nameCandidates } from "@/lib/scan/name-match";
 import type { StationStore, CachedPerson } from "./store";
 import type { StationApi } from "./api";
 
@@ -7,13 +8,17 @@ export type ScanOutcome =
   | { kind: "no-meal" }
   | { kind: "checked-in"; person: CachedPerson; mealPeriod: string }
   | {
-      kind: "prompt";
-      /** Every identifier the swipe carried; all of them get bound. */
-      cards: string[];
-      /** The name the stripe carried, if any — used to pre-fill the picker. */
+      kind: "candidates";
+      /** The card's token, carried so a chosen person can be bound to it. */
+      token: string;
+      /** Unbound people the printed name could mean. May be empty. */
+      candidates: CachedPerson[];
+      /** The name the stripe carried, if any. */
       nameParts: string[];
     }
   | { kind: "failed" }
+  /** The typed netID belongs to somebody who already has a card. */
+  | { kind: "already-bound"; netid: string }
   /** The server says this tablet is not enrolled. It must be set up again. */
   | { kind: "unenrolled" };
 
@@ -67,10 +72,14 @@ export async function checkIn(
  * 1. The token is cached — no network at all. This is essentially every scan
  *    during a rush, and it is the path the 500ms budget applies to.
  * 2. Not cached, the server knows it — one round trip, then cached forever.
- * 3. Not cached, the server says it has never seen it — prompt.
- * 4. Not cached, the server does not answer — prompt anyway. A member
- *    resolves fully offline from the cached roster; a guest cannot, and is
- *    abandoned later in createGuest. That is the one accepted loss.
+ * 3. Not cached, the server says it has never seen it — offer the unbound
+ *    people whose name the card could mean.
+ * 4. Not cached, the server does not answer — offer them anyway. The name
+ *    match is local, so a member resolves fully offline; a guest cannot, and
+ *    is abandoned later in createGuest. That is the one accepted loss.
+ *
+ * A typed netID is none of these. It is the identity itself, so it resolves
+ * against the whole roster and checks in with nothing to bind.
  */
 export async function resolveScan(
   raw: string,
@@ -82,38 +91,49 @@ export async function resolveScan(
   const meal = deriveMeal(at, await deps.store.getSchedule());
   if (!meal) return { kind: "no-meal" };
 
-  // A magnetic stripe carries two numbers, either of which may be the one
-  // this person was bound under.
+  // One token per card: track 1's 15-digit base.
   const swipe = parseCardSwipe(raw);
-  if (swipe.tokens.length === 0) return { kind: "failed" };
+  if (!swipe.token) return { kind: "failed" };
 
-  // Case 1.
-  for (const token of swipe.tokens) {
-    const cached = await deps.store.resolveToken(token);
-    if (cached) return checkIn(cached, meal.mealPeriod, at, entryMethod, deps);
+  // A typed netID is the identity, not a credential. It searches the WHOLE
+  // roster rather than the unbound half: filtering the way the card path does
+  // would send a member who already has a card to the guest form.
+  if (!swipe.isCard) {
+    const person = (await deps.store.allPeople()).find((p) => p.netid === swipe.token);
+    if (person) return checkIn(person, meal.mealPeriod, at, entryMethod, deps);
+    return { kind: "candidates", token: swipe.token, candidates: [], nameParts: [] };
   }
 
-  const result = await deps.api.resolve(deps.deviceToken, swipe.tokens);
+  // Case 1.
+  const cached = await deps.store.resolveToken(swipe.token);
+  if (cached) return checkIn(cached, meal.mealPeriod, at, entryMethod, deps);
+
+  const result = await deps.api.resolve(deps.deviceToken, swipe.token);
 
   // Case 2.
   if (result.ok) {
     await deps.store.putPerson(result.data);
-    for (const token of swipe.tokens) {
-      await deps.store.addCredential(token, result.data.netid);
-    }
+    await deps.store.addCredential(swipe.token, result.data.netid);
     return checkIn(result.data, meal.mealPeriod, at, entryMethod, deps);
-  }
-
-  // Case 3 (404) and case 4 (no answer at all).
-  if (result.status === 404 || result.status === null) {
-    return { kind: "prompt", cards: swipe.tokens, nameParts: swipe.nameParts };
   }
 
   // The tablet's token is dead — revoked from the dashboard, or its device
   // row is gone. Reporting this as "could not reach the server" sends staff
   // to check the Wi-Fi for a problem no amount of network will fix, and the
-  // tablet stays stuck forever. Say what it actually is.
+  // tablet stays stuck forever. Say what it actually is. Checked before the
+  // 404/no-answer pair so a definite answer is never read as silence.
   if (result.status === 401) return { kind: "unenrolled" };
+
+  // Case 3 (404) and case 4 (no answer at all). The match is local, so an
+  // unreachable server costs nothing here.
+  if (result.status === 404 || result.status === null) {
+    return {
+      kind: "candidates",
+      token: swipe.token,
+      candidates: nameCandidates(swipe.nameParts, await deps.store.unboundPeople()),
+      nameParts: swipe.nameParts,
+    };
+  }
 
   // A definite answer that is neither "here they are" nor "never seen it" —
   // a server fault. A local prompt cannot fix it, so say so rather than

@@ -1,10 +1,14 @@
+import type { Versions } from "@/lib/api/envelope";
 import type { StationStore, QueuedItem } from "./store";
 import type { StationApi } from "./api";
+import { refreshIfStale } from "./bootstrap";
 
 export type OutboxDeps = {
   store: StationStore;
   api: StationApi;
   deviceToken: string;
+  /** Injectable so a test can assert the re-warm without a network. */
+  refresh?: (deps: OutboxDeps, seen: Versions) => Promise<boolean>;
 };
 
 export type FlushResult = { sent: number; remaining: number };
@@ -35,22 +39,46 @@ export async function flushOutbox(deps: OutboxDeps): Promise<FlushResult> {
     // Bindings first: a binding that fails should not stop swipes going, but
     // sending them ahead means a newly bound card is known server-side by the
     // time anyone looks at the roster.
-    for (const binding of bindings) {
-      const result = await deps.api.bind(deps.deviceToken, binding.tokens, binding.netid);
+    /** The newest version stamps any response handed back this flush. */
+    let seen: Versions | null = null;
 
-      // 409 means the server already bound that card to someone else and kept
-      // its own answer. Retrying forever would be a poison pill in the queue.
+    for (const binding of bindings) {
+      // A binding queued by an older build has no `token`. Sending undefined
+      // earns a 400, which is not in the drop list below, so it would sit in
+      // the queue being retried every few seconds forever.
+      if (!binding.token || !binding.netid) {
+        done.push(binding.id);
+        continue;
+      }
+
+      const result = await deps.api.bind(deps.deviceToken, binding.token, binding.netid);
+
+      // 409 means the server refused: either that card belongs to somebody
+      // else, or this person already has one and two lanes raced. Both are
+      // final answers, and retrying forever would poison the queue.
       if (result.ok || result.status === 409 || result.status === 404) {
         done.push(binding.id);
       }
+      if (result.ok) seen = result.versions;
     }
 
     if (swipes.length > 0) {
       const result = await deps.api.sync(deps.deviceToken, swipes);
-      if (result.ok) done.push(...swipes.map((s) => s.id));
+      if (result.ok) {
+        done.push(...swipes.map((s) => s.id));
+        seen = result.versions;
+      }
     }
 
     if (done.length > 0) await deps.store.removeFromOutbox(done);
+
+    // Every station response carries the current version stamps, which is how
+    // a tablet is meant to learn that the roster moved — off traffic it was
+    // already sending, with no polling and no push. Nothing compared them
+    // until now, so a running tablet only ever refreshed on page load: a
+    // roster change, a photo upload, or a card bound on another lane stayed
+    // invisible to it for the rest of service.
+    if (seen) await (deps.refresh ?? refreshIfStale)(deps, seen);
 
     return { sent: done.length, remaining: await deps.store.outboxSize() };
   } finally {

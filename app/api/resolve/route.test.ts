@@ -27,9 +27,9 @@ beforeAll(async () => {
       photo_path: "res00002.webp",
     },
   ]);
+  // One credential each: credentials.netid is unique as of migration 0007.
   await db.from("credentials").upsert([
     { token: "TOKEN-RES-1", netid: "res00001" },
-    { token: "TOKEN-RES-OLD", netid: "res00001" },
     { token: "TOKEN-RES-2", netid: "res00002" },
   ]);
 });
@@ -72,12 +72,6 @@ describe("POST /api/resolve", () => {
       homeClub: "Cap & Gown",
       photoPath: "res00001.webp",
     });
-  });
-
-  it("resolves a second card for the same person to that same person", async () => {
-    // A replacement card adds a credential row rather than overwriting one.
-    const res = await POST(request({ token: "TOKEN-RES-OLD" }, token));
-    expect((await res.json()).data.netid).toBe("res00001");
   });
 
   it("resolves a departed member, who can still eat here as a guest", async () => {

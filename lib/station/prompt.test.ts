@@ -63,7 +63,7 @@ afterEach(async () => {
 describe("bindMember", () => {
   it("checks the member in and caches the card locally", async () => {
     const store = await seeded();
-    const outcome = await bindMember("CARD-NEW", "aa1111", deps(store, fakeApi()));
+    const outcome = await bindMember("CARD-NEW", "aa1111", deps(store, fakeApi()), "scan");
 
     expect(outcome).toEqual({ kind: "checked-in", person: MEMBER, mealPeriod: "lunch" });
     expect((await store.resolveToken("CARD-NEW"))?.netid).toBe("aa1111");
@@ -76,7 +76,7 @@ describe("bindMember", () => {
       createGuest: vi.fn().mockRejectedValue(new Error("offline")),
     } as Partial<StationApi>);
 
-    const outcome = await bindMember("CARD-NEW", "aa1111", deps(store, api));
+    const outcome = await bindMember("CARD-NEW", "aa1111", deps(store, api), "scan");
 
     expect(outcome.kind).toBe("checked-in");
     expect(api.bind).not.toHaveBeenCalled();
@@ -84,7 +84,7 @@ describe("bindMember", () => {
 
   it("queues both the binding and the swipe for later", async () => {
     const store = await seeded();
-    await bindMember("CARD-NEW", "aa1111", deps(store, fakeApi()));
+    await bindMember("CARD-NEW", "aa1111", deps(store, fakeApi()), "scan");
 
     const kinds = (await store.peekOutbox()).map((i) => i.kind);
     expect(kinds).toContain("binding");
@@ -93,14 +93,14 @@ describe("bindMember", () => {
 
   it("makes the next scan of that card a plain cache hit", async () => {
     const store = await seeded();
-    await bindMember("CARD-NEW", "aa1111", deps(store, fakeApi()));
+    await bindMember("CARD-NEW", "aa1111", deps(store, fakeApi()), "scan");
 
     expect((await store.resolveToken("CARD-NEW"))?.fullName).toBe("Cached Member");
   });
 
   it("refuses a netid that is not in the cached roster", async () => {
     const store = await seeded();
-    const outcome = await bindMember("CARD-NEW", "ghost999", deps(store, fakeApi()));
+    const outcome = await bindMember("CARD-NEW", "ghost999", deps(store, fakeApi()), "scan");
 
     expect(outcome).toEqual({ kind: "failed" });
     expect(await store.outboxSize()).toBe(0);
@@ -108,10 +108,12 @@ describe("bindMember", () => {
 
   it("reports no meal outside every window", async () => {
     const store = await seeded();
-    const outcome = await bindMember("CARD-NEW", "aa1111", {
-      ...deps(store, fakeApi()),
-      now: () => new Date("2026-09-02T19:00:00.000Z"),
-    });
+    const outcome = await bindMember(
+      "CARD-NEW",
+      "aa1111",
+      { ...deps(store, fakeApi()), now: () => new Date("2026-09-02T19:00:00.000Z") },
+      "scan",
+    );
 
     expect(outcome).toEqual({ kind: "no-meal" });
     expect(await store.outboxSize()).toBe(0);
@@ -123,7 +125,7 @@ describe("createGuest", () => {
     const store = await seeded();
     const api = fakeApi();
 
-    const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api));
+    const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api), { cardName: [], entryMethod: "scan" });
 
     expect(outcome).toEqual({ kind: "checked-in", person: GUEST, mealPeriod: "lunch" });
     expect(api.createGuest).toHaveBeenCalledWith(DEVICE_TOKEN, "gg9999", "Cottage", "CARD-G", []);
@@ -135,7 +137,7 @@ describe("createGuest", () => {
     const store = await seeded();
     const api = fakeApi();
 
-    await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api), ["ALICE", "BROWNING"]);
+    await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api), { cardName: ["ALICE", "BROWNING"], entryMethod: "scan" });
 
     expect(api.createGuest).toHaveBeenCalledWith(
       DEVICE_TOKEN, "gg9999", "Cottage", "CARD-G", ["ALICE", "BROWNING"],
@@ -151,7 +153,7 @@ describe("createGuest", () => {
       createGuest: vi.fn().mockResolvedValue({ ok: false, status: null }),
     } as Partial<StationApi>);
 
-    const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api));
+    const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api), { cardName: [], entryMethod: "scan" });
 
     expect(outcome).toEqual({ kind: "failed" });
     expect(await store.outboxSize()).toBe(0);
@@ -163,10 +165,25 @@ describe("createGuest", () => {
       createGuest: vi.fn().mockResolvedValue({ ok: false, status: null }),
     } as Partial<StationApi>);
 
-    await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api));
+    await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api), { cardName: [], entryMethod: "scan" });
 
     expect(await store.resolveToken("CARD-G")).toBeNull();
     expect((await store.allMembers()).map((p) => p.netid)).toEqual(["aa1111"]);
+  });
+
+  it("RECORDS A TILE TAP AS A SCAN, not as manual entry", async () => {
+    // The card arrived by reader; tapping a tile only settled WHO it was.
+    // Hardcoding "manual" here meant every one of 196 first swipes at go-live
+    // would be filed as typed entry, and any later question about how well
+    // the scanner worked would get the opposite of the truth.
+    const store = await seeded();
+
+    await bindMember("CARD-NEW", "aa1111", deps(store, fakeApi()), "scan");
+
+    // The outbox holds the binding and then the swipe; the entry method is
+    // recorded on the swipe.
+    const swipeItem = (await store.peekOutbox()).find((i) => i.kind === "swipe");
+    expect(swipeItem && swipeItem.kind === "swipe" && swipeItem.entryMethod).toBe("scan");
   });
 
   it("SAYS TO SEE AN OFFICER when that netID already has a card", async () => {
@@ -178,7 +195,7 @@ describe("createGuest", () => {
       createGuest: vi.fn().mockResolvedValue({ ok: false, status: 409 }),
     } as Partial<StationApi>);
 
-    const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api));
+    const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api), { cardName: [], entryMethod: "scan" });
 
     expect(outcome).toEqual({ kind: "already-bound", netid: "gg9999" });
     expect(await store.resolveToken("CARD-G")).toBeNull();
@@ -191,13 +208,13 @@ describe("createGuest", () => {
       createGuest: vi.fn().mockResolvedValue({ ok: false, status: 400 }),
     } as Partial<StationApi>);
 
-    expect(await createGuest("CARD-G", "bad netid", "Cottage", deps(store, api)))
+    expect(await createGuest("CARD-G", "bad netid", "Cottage", deps(store, api), { cardName: [], entryMethod: "scan" }))
       .toEqual({ kind: "failed" });
   });
 
   it("works without a card, for a guest entered by hand", async () => {
     const store = await seeded();
-    const outcome = await createGuest(null, "gg9999", "Cottage", deps(store, fakeApi()));
+    const outcome = await createGuest(null, "gg9999", "Cottage", deps(store, fakeApi()), { cardName: [], entryMethod: "scan" });
 
     expect(outcome.kind).toBe("checked-in");
     expect(await store.outboxSize()).toBe(1);

@@ -15,6 +15,15 @@ export async function bindMember(
   card: string,
   netid: string,
   deps: ResolveDeps,
+  /**
+   * How the identifier arrived — NOT how the person was chosen.
+   *
+   * A tile tap after a card swipe is still a scan: the reader worked, and the
+   * tap only settled which of the offered people it was. Hardcoding "manual"
+   * here filed every first swipe as typed entry, so go-live would have
+   * recorded 196 manual entries on the night the scanner did all the work.
+   */
+  entryMethod: "scan" | "manual",
 ): Promise<ScanOutcome> {
   const at = deps.now?.() ?? new Date();
 
@@ -28,7 +37,7 @@ export async function bindMember(
   await deps.store.addCredential(card, netid);
   await deps.store.enqueue({ kind: "binding", token: card, netid });
 
-  return checkIn(person, meal.mealPeriod, at, "manual", deps);
+  return checkIn(person, meal.mealPeriod, at, entryMethod, deps);
 }
 
 /**
@@ -49,15 +58,19 @@ export async function createGuest(
   netid: string,
   homeClub: string,
   deps: ResolveDeps,
-  /** The name printed on the card, so a guest is not recorded as a netID. */
-  cardName: string[] = [],
+  from: {
+    /** The name printed on the card, so a guest is not recorded as a netID. */
+    cardName: string[];
+    /** How the identifier arrived. See bindMember. */
+    entryMethod: "scan" | "manual";
+  },
 ): Promise<ScanOutcome> {
   const at = deps.now?.() ?? new Date();
 
   const meal = deriveMeal(at, await deps.store.getSchedule());
   if (!meal) return { kind: "no-meal" };
 
-  const result = await deps.api.createGuest(deps.deviceToken, netid, homeClub, card, cardName);
+  const result = await deps.api.createGuest(deps.deviceToken, netid, homeClub, card, from.cardName);
 
   // Spec section 8. That person already has a card, which means a replacement
   // or the wrong netID — neither is safe to guess at, and neither is a
@@ -69,5 +82,5 @@ export async function createGuest(
   await deps.store.putPerson(result.data);
   if (card) await deps.store.addCredential(card, result.data.netid);
 
-  return checkIn(result.data, meal.mealPeriod, at, "manual", deps);
+  return checkIn(result.data, meal.mealPeriod, at, from.entryMethod, deps);
 }

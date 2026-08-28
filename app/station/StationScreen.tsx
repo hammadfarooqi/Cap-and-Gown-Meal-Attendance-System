@@ -41,8 +41,19 @@ type Notice =
 
 /** Replaces the idle screen. Each of these is waiting on a person. */
 type Takeover =
-  | { kind: "candidates"; token: string; candidates: CachedPerson[]; nameParts: string[] }
-  | { kind: "guest-form"; card: string; nameParts: string[] };
+  | {
+      kind: "candidates";
+      card: string | null;
+      candidates: CachedPerson[];
+      nameParts: string[];
+      entryMethod: "scan" | "manual";
+    }
+  | {
+      kind: "guest-form";
+      card: string | null;
+      nameParts: string[];
+      entryMethod: "scan" | "manual";
+    };
 
 const noticeDuration = (notice: Notice, base: number) =>
   notice.kind === "already-bound" ? OFFICER_NOTICE_MS : base;
@@ -214,9 +225,10 @@ export function StationScreen({
       } else if (outcome.kind === "candidates") {
         showTakeover({
           kind: "candidates",
-          token: outcome.token,
+          card: outcome.card,
           candidates: outcome.candidates,
           nameParts: outcome.nameParts,
+          entryMethod: outcome.entryMethod,
         });
       } else if (outcome.kind === "unenrolled") {
         // No amount of retrying fixes a dead token. Hand the tablet back to
@@ -271,12 +283,16 @@ export function StationScreen({
       {takeover?.kind === "candidates" && (
         <Candidates
           people={takeover.candidates}
-          onPick={async (netid) => finish(await bindMember(takeover.token, netid, deps))}
+          onPick={async (netid) =>
+            // A tile can only exist for a card, so `card` is never null here.
+            finish(await bindMember(takeover.card!, netid, deps, takeover.entryMethod))
+          }
           onGuest={() =>
             showTakeover({
               kind: "guest-form",
-              card: takeover.token,
+              card: takeover.card,
               nameParts: takeover.nameParts,
+              entryMethod: takeover.entryMethod,
             })
           }
           onCancel={returnToIdle}
@@ -288,7 +304,12 @@ export function StationScreen({
           clubs={clubs}
           onCancel={returnToIdle}
           onSubmit={async (netid, club) =>
-            finish(await createGuest(takeover.card, netid, club, deps, takeover.nameParts))
+            finish(
+              await createGuest(takeover.card, netid, club, deps, {
+                cardName: takeover.nameParts,
+                entryMethod: takeover.entryMethod,
+              }),
+            )
           }
         />
       )}

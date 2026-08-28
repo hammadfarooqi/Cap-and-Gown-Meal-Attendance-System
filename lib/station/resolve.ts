@@ -9,12 +9,20 @@ export type ScanOutcome =
   | { kind: "checked-in"; person: CachedPerson; mealPeriod: string }
   | {
       kind: "candidates";
-      /** The card's token, carried so a chosen person can be bound to it. */
-      token: string;
+      /**
+       * The card token to bind, or null when there is nothing bindable.
+       *
+       * Null for typed entry. A netID is an identity, not a credential, and
+       * writing one into `credentials` makes that person look bound — so
+       * their real card would later find no tile and send them to an officer.
+       */
+      card: string | null;
       /** Unbound people the printed name could mean. May be empty. */
       candidates: CachedPerson[];
       /** The name the stripe carried, if any. */
       nameParts: string[];
+      /** How the identifier arrived, carried through to whatever is recorded. */
+      entryMethod: "scan" | "manual";
     }
   | { kind: "failed" }
   /** The typed netID belongs to somebody who already has a card. */
@@ -101,7 +109,7 @@ export async function resolveScan(
   if (!swipe.isCard) {
     const person = (await deps.store.allPeople()).find((p) => p.netid === swipe.token);
     if (person) return checkIn(person, meal.mealPeriod, at, entryMethod, deps);
-    return { kind: "candidates", token: swipe.token, candidates: [], nameParts: [] };
+    return { kind: "candidates", card: null, candidates: [], nameParts: [], entryMethod };
   }
 
   // Case 1.
@@ -129,9 +137,10 @@ export async function resolveScan(
   if (result.status === 404 || result.status === null) {
     return {
       kind: "candidates",
-      token: swipe.token,
+      card: swipe.token,
       candidates: nameCandidates(swipe.nameParts, await deps.store.unboundPeople()),
       nameParts: swipe.nameParts,
+      entryMethod,
     };
   }
 

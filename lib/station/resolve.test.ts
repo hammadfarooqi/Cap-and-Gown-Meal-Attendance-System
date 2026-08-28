@@ -179,7 +179,7 @@ describe("resolveScan", () => {
       const outcome = await resolveScan(CARD, deps(store, api));
 
       expect(outcome.kind).toBe("candidates");
-      expect(outcome).toMatchObject({ token: "999999000000123" });
+      expect(outcome).toMatchObject({ card: "999999000000123" });
       expect((outcome as { candidates: CachedPerson[] }).candidates.map((p) => p.netid))
         .toEqual(["ab1234"]);
       expect(await store.outboxSize()).toBe(0);
@@ -292,7 +292,7 @@ describe("resolveScan", () => {
       const outcome = await resolveScan(REAL_SWIPE, deps(store, api));
 
       expect(outcome.kind).toBe("candidates");
-      expect(outcome).toMatchObject({ token: "999999000000123" });
+      expect(outcome).toMatchObject({ card: "999999000000123" });
     });
 
     it("CACHES THE BASE ONLY, so one card is one row", async () => {
@@ -358,6 +358,27 @@ describe("resolveScan", () => {
 
       const kinds = (await store.peekOutbox()).map((i) => i.kind);
       expect(kinds).toEqual(["swipe"]);
+    });
+
+    it("OFFERS NO CARD TO BIND, because a typed netID is not a credential", async () => {
+      // It used to carry the typed string through as the card. The guest form
+      // then bound "zz9999" into credentials as though it were a card number,
+      // which quietly makes that person look bound: their real card would
+      // later find no tile and send them to an officer.
+      const store = await seeded([], [MEMBER]);
+
+      const outcome = await resolveScan("zz9999", deps(store, fakeApi()), "manual");
+
+      expect(outcome).toMatchObject({ kind: "candidates", card: null });
+    });
+
+    it("carries the entry method, so a binding is not recorded as typed", async () => {
+      const store = await seeded([], [MEMBER, ON_THE_CARD]);
+      const api = fakeApi({ resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }) } as Partial<StationApi>);
+
+      expect(await resolveScan(CARD, deps(store, api))).toMatchObject({ entryMethod: "scan" });
+      expect(await resolveScan("zz9999", deps(store, api), "manual"))
+        .toMatchObject({ entryMethod: "manual" });
     });
 
     it("offers nobody for a netID it has never seen", async () => {

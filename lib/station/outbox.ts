@@ -88,16 +88,26 @@ export async function flushOutbox(deps: OutboxDeps): Promise<FlushResult> {
 
 export const DEFAULT_FLUSH_INTERVAL_MS = 5000;
 
-/** Start the background drain. Returns a function that stops it. */
+/**
+ * Start the background drain. Returns a function that stops it.
+ *
+ * `onFlushed` exists because the queue is drained here but displayed
+ * elsewhere. Without it the station's "waiting to sync" count is whatever it
+ * was at the last scan: the loop empties the queue silently, and the number
+ * sits there claiming a backlog that cleared minutes ago.
+ */
 export function startOutboxLoop(
   deps: OutboxDeps,
   intervalMs = DEFAULT_FLUSH_INTERVAL_MS,
+  onFlushed?: (result: FlushResult) => void,
 ): () => void {
   const timer = setInterval(() => {
-    void flushOutbox(deps).catch(() => {
-      // A flush failure is normal — the network is down. The items stay
-      // queued and the next tick tries again.
-    });
+    void flushOutbox(deps)
+      .then((result) => onFlushed?.(result))
+      .catch(() => {
+        // A flush failure is normal — the network is down. The items stay
+        // queued and the next tick tries again.
+      });
   }, intervalMs);
 
   return () => clearInterval(timer);

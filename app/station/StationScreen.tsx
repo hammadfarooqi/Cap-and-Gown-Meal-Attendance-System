@@ -184,7 +184,9 @@ export function StationScreen({
 
   // Drain the outbox in the background.
   useEffect(() => {
-    const stop = startOutboxLoop({ store, api, deviceToken });
+    const stop = startOutboxLoop({ store, api, deviceToken }, undefined, (result) =>
+      setUnsynced(result.remaining),
+    );
     return stop;
   }, [store, api, deviceToken]);
 
@@ -201,7 +203,14 @@ export function StationScreen({
         // A failure here is expected and harmless — the loop retries — but it
         // must be caught, or a closed database or a dead network surfaces as
         // an unhandled rejection.
-        void flushOutbox({ store, api, deviceToken }).catch(() => {});
+        //
+        // The count is updated when the flush FINISHES, not before it starts.
+        // refreshLocalState below runs while this is still in flight, so on
+        // its own it reports the backlog as it was at the moment of the scan
+        // and nothing ever corrects it.
+        void flushOutbox({ store, api, deviceToken })
+          .then((result) => setUnsynced(result.remaining))
+          .catch(() => {});
       } else if (outcome.kind === "candidates") {
         showTakeover({
           kind: "candidates",

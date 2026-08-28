@@ -323,6 +323,38 @@ describe("StationScreen", () => {
     expect(screen.queryByTestId("failed")).not.toBeInTheDocument();
   });
 
+  describe("the waiting-to-sync count", () => {
+    it("FALLS BACK TO ZERO once the flush that followed the scan finishes", async () => {
+      // It used to be read while the flush was still in flight, so it showed
+      // the backlog as of the instant of the scan and nothing ever corrected
+      // it. The queue drained silently and the number sat there claiming a
+      // backlog that had already cleared — which at a door reads as "sync is
+      // broken" when sync is fine.
+      mount(await seeded(), fakeApi());
+      await screen.findByTestId("idle");
+
+      await scan(ALICE_CARD);
+      await screen.findByTestId("name");
+
+      await waitFor(() =>
+        expect(screen.queryByTestId("unsynced")).not.toBeInTheDocument(),
+      );
+    });
+
+    it("shows a real backlog when the server is not answering", async () => {
+      const api = fakeApi({
+        sync: vi.fn().mockResolvedValue({ ok: false, status: null }),
+      } as Partial<StationApi>);
+      mount(await seeded(), api);
+      await screen.findByTestId("idle");
+
+      await scan(ALICE_CARD);
+      await screen.findByTestId("name");
+
+      expect(await screen.findByTestId("unsynced")).toHaveTextContent("1 waiting to sync");
+    });
+  });
+
   describe("what replaces the lane and what sits under it", () => {
     it("KEEPS THE LANE LIVE UNDER A CHECK-IN, so the next person can swipe", async () => {
       // The point of the whole layout: a result is a notice, not a takeover.

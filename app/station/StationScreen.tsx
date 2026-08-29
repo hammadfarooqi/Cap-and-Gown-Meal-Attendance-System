@@ -37,7 +37,8 @@ type Notice =
   | { kind: "checked-in"; person: CachedPerson; mealPeriod: string; url: string | null }
   | { kind: "no-meal" }
   | { kind: "failed" }
-  | { kind: "already-bound"; netid: string };
+  | { kind: "already-bound"; netid: string }
+  | { kind: "not-a-netid" };
 
 /** Replaces the idle screen. Each of these is waiting on a person. */
 type Takeover =
@@ -374,6 +375,13 @@ export function StationScreen({
                 <p data-testid="failed" className="max-w-2xl text-center text-2xl text-ink">
                   Could not reach the server —{" "}
                   <span className="text-ink-secondary">not counted</span>
+                </p>
+              )}
+
+              {notice.kind === "not-a-netid" && (
+                <p data-testid="not-a-netid" className="max-w-2xl text-center text-2xl text-ink">
+                  That is not a netID —{" "}
+                  <span className="text-ink-secondary">two letters and four digits</span>
                 </p>
               )}
 

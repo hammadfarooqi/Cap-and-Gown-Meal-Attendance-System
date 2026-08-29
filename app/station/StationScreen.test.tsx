@@ -240,7 +240,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "aa1111");
+    await userEvent.type(screen.getByLabelText("Type a netID"), "aa1111");
     await userEvent.click(screen.getByRole("button", { name: "Enter" }));
 
     expect(await screen.findByTestId("name")).toHaveTextContent("Alice Anderson");
@@ -251,7 +251,7 @@ describe("StationScreen", () => {
     mount(store, fakeApi({ sync: vi.fn().mockResolvedValue({ ok: false, status: null }) } as Partial<StationApi>));
     await screen.findByTestId("idle");
 
-    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "aa1111");
+    await userEvent.type(screen.getByLabelText("Type a netID"), "aa1111");
     await userEvent.click(screen.getByRole("button", { name: "Enter" }));
     await screen.findByTestId("name");
 
@@ -267,7 +267,7 @@ describe("StationScreen", () => {
     mount(store, api);
     await screen.findByTestId("idle");
 
-    await userEvent.type(screen.getByLabelText("Enter an ID by hand"), "22222222222222");
+    await userEvent.type(screen.getByLabelText("Type a netID"), "22222222222222");
 
     expect(screen.queryByTestId("name")).not.toBeInTheDocument();
     expect(await store.outboxSize()).toBe(0);
@@ -277,12 +277,12 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    const box = screen.getByLabelText("Enter an ID by hand");
+    const box = screen.getByLabelText("Type a netID");
     await userEvent.type(box, "aa1111");
     await userEvent.click(screen.getByRole("button", { name: "Enter" }));
     await screen.findByTestId("name");
 
-    await waitFor(() => expect(screen.getByLabelText("Enter an ID by hand")).toHaveValue(""));
+    await waitFor(() => expect(screen.getByLabelText("Type a netID")).toHaveValue(""));
   });
 
   it("reports failure explicitly rather than showing a blank screen", async () => {
@@ -321,6 +321,30 @@ describe("StationScreen", () => {
 
     await waitFor(() => expect(onUnenrolled).toHaveBeenCalledOnce());
     expect(screen.queryByTestId("failed")).not.toBeInTheDocument();
+  });
+
+  describe("the typed netID box", () => {
+    it("REFUSES A MALFORMED NETID instead of offering the guest route", async () => {
+      // zz99 cannot be anybody. Sending it onward finds nobody, offers "I'm a
+      // guest", and invites a person to be created under an id that is not a
+      // netID at all.
+      mount(await seeded(), fakeApi());
+      await screen.findByTestId("idle");
+
+      await userEvent.type(screen.getByLabelText("Type a netID"), "zz99");
+      expect(screen.getByRole("button", { name: "Enter" })).toBeDisabled();
+
+      await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+      expect(screen.queryByTestId("candidates")).not.toBeInTheDocument();
+    });
+
+    it("accepts a well-formed one", async () => {
+      mount(await seeded(), fakeApi());
+      await screen.findByTestId("idle");
+
+      await userEvent.type(screen.getByLabelText("Type a netID"), "aa1111");
+      expect(screen.getByRole("button", { name: "Enter" })).toBeEnabled();
+    });
   });
 
   describe("the waiting-to-sync count", () => {
@@ -366,7 +390,7 @@ describe("StationScreen", () => {
       await screen.findByTestId("name");
 
       expect(screen.getByTestId("idle")).toBeInTheDocument();
-      expect(screen.getByLabelText("Enter an ID by hand")).toBeInTheDocument();
+      expect(screen.getByLabelText("Type a netID")).toBeInTheDocument();
     });
 
     it("TAKES THE LANE for a question, because it is waiting on a person", async () => {
@@ -377,7 +401,7 @@ describe("StationScreen", () => {
       await screen.findByTestId("candidates");
 
       expect(screen.queryByTestId("idle")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("Enter an ID by hand")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Type a netID")).not.toBeInTheDocument();
     });
 
     it("lets the NEXT SCAN take over a question nobody answered", async () => {

@@ -381,6 +381,15 @@ describe("resolveScan", () => {
         .toMatchObject({ entryMethod: "manual" });
     });
 
+    it("REFUSES A TYPED VALUE THAT IS NOT A NETID", async () => {
+      // The box blocks this, but the burst detector can also hand over a
+      // short non-card string, and that must not reach the guest route.
+      const store = await seeded([], [MEMBER]);
+
+      expect(await resolveScan("zz99", deps(store, fakeApi()), "manual"))
+        .toEqual({ kind: "not-a-netid" });
+    });
+
     it("offers nobody for a netID it has never seen", async () => {
       const store = await seeded([], [MEMBER]);
 

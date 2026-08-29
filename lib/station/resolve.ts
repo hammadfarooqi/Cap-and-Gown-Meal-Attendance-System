@@ -1,5 +1,6 @@
 import { deriveMeal } from "@/lib/meals/derive";
 import { parseCardSwipe } from "@/lib/scan/card";
+import { isValidNetid } from "@/lib/directory/lookup";
 import { nameCandidates } from "@/lib/scan/name-match";
 import type { StationStore, CachedPerson } from "./store";
 import type { StationApi } from "./api";
@@ -35,6 +36,8 @@ export type ScanOutcome =
   | { kind: "failed" }
   /** The typed netID belongs to somebody who already has a card. */
   | { kind: "already-bound"; netid: string }
+  /** Typed, but not shaped like a netID. Nothing can be done with it. */
+  | { kind: "not-a-netid" }
   /** The server says this tablet is not enrolled. It must be set up again. */
   | { kind: "unenrolled" };
 
@@ -115,6 +118,11 @@ export async function resolveScan(
   // roster rather than the unbound half: filtering the way the card path does
   // would send a member who already has a card to the guest form.
   if (!swipe.isCard) {
+    // The box validates this too, but the burst detector can also hand over a
+    // short non-card string. Offering the guest route for something that can
+    // never be a netID invites a person to be created under a broken id.
+    if (!isValidNetid(swipe.token)) return { kind: "not-a-netid" };
+
     const person = (await deps.store.allPeople()).find((p) => p.netid === swipe.token);
     if (person) return checkIn(person, meal.mealPeriod, at, entryMethod, deps);
     return {

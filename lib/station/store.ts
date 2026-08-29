@@ -145,6 +145,27 @@ export async function openStore() {
       return ((await db.get("meta", "clubs")) as string[] | undefined) ?? [];
     },
 
+    /**
+     * A second copy of the device token.
+     *
+     * localStorage is the primary home because the token is needed
+     * synchronously before anything else can start. But a tablet at the club
+     * lost its localStorage key while this database survived intact — 2MB of
+     * cache still present — so one copy is not enough. `putBootstrap` only
+     * writes named keys into `meta`, so this survives a re-warm.
+     */
+    async getTokenBackup(): Promise<string | null> {
+      return ((await db.get("meta", "deviceToken")) as string | undefined) ?? null;
+    },
+
+    async putTokenBackup(token: string): Promise<void> {
+      await db.put("meta", token, "deviceToken");
+    },
+
+    async clearTokenBackup(): Promise<void> {
+      await db.delete("meta", "deviceToken");
+    },
+
     async getVersions(): Promise<Versions | null> {
       return ((await db.get("meta", "versions")) as Versions | undefined) ?? null;
     },

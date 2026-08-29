@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { openStore, type StationStore } from "@/lib/station/store";
 import { api } from "@/lib/station/api";
-import { clearDeviceToken, getDeviceToken } from "@/lib/station/session";
+import {
+  forgetDeviceToken,
+  getDeviceToken,
+  resolveDeviceToken,
+  rememberDeviceToken,
+} from "@/lib/station/session";
 import { StationScreen } from "./StationScreen";
 import { EnrollScreen } from "./EnrollScreen";
 import { useServiceWorker } from "./useServiceWorker";
@@ -27,7 +32,14 @@ export default function StationPage() {
       const opened = await openStore();
       if (!live) return;
       setStore(opened);
-      setToken(getDeviceToken());
+
+      // Ask the browser not to evict any of this. A kiosk tablet holds the
+      // roster, the photo cache and the enrolment; losing them mid-service
+      // means a lane that stops. Ignored where unsupported.
+      void navigator.storage?.persist?.().catch(() => {});
+
+      setToken(await resolveDeviceToken(opened));
+      if (!live) return;
       setReady(true);
     })();
     return () => {
@@ -46,7 +58,16 @@ export default function StationPage() {
   if (!deviceToken) {
     return (
       <main className="station-dark flex min-h-screen items-center justify-center bg-page p-8 text-ink">
-        <EnrollScreen onEnrolled={() => setToken(getDeviceToken())} />
+        <EnrollScreen
+          onEnrolled={async () => {
+            // enrollDevice has already written localStorage; mirror it into
+            // IndexedDB so one copy losing it does not un-enrol the tablet.
+            const token = getDeviceToken();
+            if (!token) return;
+            await rememberDeviceToken(store, token);
+            setToken(token);
+          }}
+        />
       </main>
     );
   }
@@ -56,10 +77,11 @@ export default function StationPage() {
       store={store}
       api={api}
       deviceToken={deviceToken}
-      onUnenrolled={() => {
+      onUnenrolled={async () => {
         // Revoked from the dashboard, or the device row is gone. Forget the
-        // dead token so the enrolment screen comes back on its own.
-        clearDeviceToken();
+        // dead token in BOTH places, or the backup would resurrect it on the
+        // next load and the tablet would never come back for a new code.
+        await forgetDeviceToken(store);
         setToken(null);
       }}
     />

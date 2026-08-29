@@ -1,3 +1,5 @@
+import type { StationStore } from "./store";
+
 const STORAGE_KEY = "deviceToken";
 
 /**
@@ -18,6 +20,47 @@ export function setDeviceToken(token: string): void {
 
 export function clearDeviceToken(): void {
   window.localStorage.removeItem(STORAGE_KEY);
+}
+
+/**
+ * The device token, from whichever copy still exists.
+ *
+ * A tablet at the club showed the enrolment screen after a plain refresh:
+ * same browser, same tab, same URL, a device the server still accepted, and a
+ * token that cannot expire. Its localStorage key had gone while 2MB of
+ * IndexedDB and service-worker cache sat untouched, so eviction does not
+ * explain it and nothing in the app had cleared it.
+ *
+ * Rather than keep guessing at the cause, the token is kept in both places
+ * and either one can restore the other. A lane asking for a setup code in the
+ * middle of service is not a failure worth being precise about.
+ */
+export async function resolveDeviceToken(store: StationStore): Promise<string | null> {
+  const local = getDeviceToken();
+  if (local) {
+    // Cheap to keep the backup current, and covers a tablet enrolled before
+    // this existed.
+    await store.putTokenBackup(local);
+    return local;
+  }
+
+  const backup = await store.getTokenBackup();
+  if (!backup) return null;
+
+  setDeviceToken(backup);
+  return backup;
+}
+
+/** Store the token in both places at once. */
+export async function rememberDeviceToken(store: StationStore, token: string): Promise<void> {
+  setDeviceToken(token);
+  await store.putTokenBackup(token);
+}
+
+/** Forget it in both, so a revoked tablet does not resurrect itself. */
+export async function forgetDeviceToken(store: StationStore): Promise<void> {
+  clearDeviceToken();
+  await store.clearTokenBackup();
 }
 
 /**

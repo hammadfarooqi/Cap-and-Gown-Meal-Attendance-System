@@ -6,9 +6,9 @@ import { POST } from "./route";
 
 const db = serviceClient();
 const DEVICE = "guesttest-lane";
-const GUEST = "guest001";
-const EXMEMBER = "exmem001";
-const MEMBER = "curmem01";
+const GUEST = "gu9001";
+const EXMEMBER = "ex9002";
+const MEMBER = "cu9003";
 const CARD = "GUEST-CARD-1";
 const CARD2 = "GUEST-CARD-2";
 let token: string;

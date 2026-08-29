@@ -47,12 +47,14 @@ type Takeover =
       candidates: CachedPerson[];
       nameParts: string[];
       entryMethod: "scan" | "manual";
+      typed: string | null;
     }
   | {
       kind: "guest-form";
       card: string | null;
       nameParts: string[];
       entryMethod: "scan" | "manual";
+      typed: string | null;
     };
 
 const noticeDuration = (notice: Notice, base: number) =>
@@ -229,6 +231,7 @@ export function StationScreen({
           candidates: outcome.candidates,
           nameParts: outcome.nameParts,
           entryMethod: outcome.entryMethod,
+          typed: outcome.typed,
         });
       } else if (outcome.kind === "unenrolled") {
         // No amount of retrying fixes a dead token. Hand the tablet back to
@@ -293,6 +296,7 @@ export function StationScreen({
               card: takeover.card,
               nameParts: takeover.nameParts,
               entryMethod: takeover.entryMethod,
+              typed: takeover.typed,
             })
           }
           onCancel={returnToIdle}
@@ -302,6 +306,7 @@ export function StationScreen({
       {takeover?.kind === "guest-form" && (
         <GuestForm
           clubs={clubs}
+          initialNetid={takeover.typed ?? ""}
           onCancel={returnToIdle}
           onSubmit={async (netid, club) =>
             finish(

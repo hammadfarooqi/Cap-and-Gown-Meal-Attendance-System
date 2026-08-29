@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { isValidNetid, lookupNetid } from "./lookup";
 
 describe("isValidNetid", () => {
-  it.each(["ab1234", "ab12", "zz9"])("accepts %s", (n) => {
+  it.each(["ab1234", "zz9999", "hl7165"])("accepts %s", (n) => {
     expect(isValidNetid(n)).toBe(true);
   });
 
@@ -14,6 +14,12 @@ describe("isValidNetid", () => {
     ["hf-4888", "contains punctuation"],
     ["ab1234@princeton.edu", "an email, not a netID"],
     ["averyveryverylongnetid", "too long"],
+    ["ab12", "too few digits"],
+    ["ab12345", "too many digits"],
+    ["a1234", "one letter"],
+    ["abc1234", "three letters"],
+    ["abcdef", "no digits"],
+    ["123456", "no letters"],
   ])("rejects %s (%s)", (n) => {
     expect(isValidNetid(n)).toBe(false);
   });

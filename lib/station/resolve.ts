@@ -23,6 +23,14 @@ export type ScanOutcome =
       nameParts: string[];
       /** How the identifier arrived, carried through to whatever is recorded. */
       entryMethod: "scan" | "manual";
+      /**
+       * What was typed, when it was typed rather than swiped.
+       *
+       * Only used to pre-fill the guest form. Somebody who has just typed
+       * their netID and been told we do not know them should not have to type
+       * it a second time to say so.
+       */
+      typed: string | null;
     }
   | { kind: "failed" }
   /** The typed netID belongs to somebody who already has a card. */
@@ -109,7 +117,14 @@ export async function resolveScan(
   if (!swipe.isCard) {
     const person = (await deps.store.allPeople()).find((p) => p.netid === swipe.token);
     if (person) return checkIn(person, meal.mealPeriod, at, entryMethod, deps);
-    return { kind: "candidates", card: null, candidates: [], nameParts: [], entryMethod };
+    return {
+      kind: "candidates",
+      card: null,
+      candidates: [],
+      nameParts: [],
+      entryMethod,
+      typed: swipe.token,
+    };
   }
 
   // Case 1.
@@ -141,6 +156,7 @@ export async function resolveScan(
       candidates: nameCandidates(swipe.nameParts, await deps.store.unboundPeople()),
       nameParts: swipe.nameParts,
       entryMethod,
+      typed: null,
     };
   }
 

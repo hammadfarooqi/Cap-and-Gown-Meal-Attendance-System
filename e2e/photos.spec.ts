@@ -8,7 +8,7 @@ const db = createClient(
   { auth: { persistSession: false } },
 );
 
-const NETID = "photo001";
+const NETID = "ph9001";
 const DEVICE = "phototest-lane";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -88,7 +88,7 @@ test("a member with no photo gives a clean 404, not an error", async ({ request 
   const { code } = await createEnrollmentCode(DEVICE);
   const { token } = (await redeemEnrollmentCode(code))!;
 
-  const res = await request.get("/api/photos/nobody99", {
+  const res = await request.get("/api/photos/no9999", {
     headers: { authorization: `Bearer ${token}` },
   });
 

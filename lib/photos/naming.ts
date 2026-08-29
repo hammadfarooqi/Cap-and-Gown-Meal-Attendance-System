@@ -18,7 +18,7 @@ import { isValidNetid } from "@/lib/directory/lookup";
  * matching "img" and "headshot.png" matching "headshot" — both of which the
  * looser rule accepted.
  *
- * isValidNetid itself stays permissive, because a guest may type an older
+ * isValidNetid is now strict too, but this keeps its own digit check because
  * letters-only netID and that path has a human watching.
  */
 function looksLikeANetid(candidate: string): boolean {

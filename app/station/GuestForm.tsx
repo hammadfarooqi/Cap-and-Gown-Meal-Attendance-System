@@ -5,17 +5,29 @@ import { isValidNetid } from "@/lib/directory/lookup";
 
 type GuestFormProps = {
   clubs: string[];
+  /** Pre-filled when they got here by typing a netID we did not recognise. */
+  initialNetid?: string;
   onSubmit: (netid: string, homeClub: string) => void;
   onCancel: () => void;
 };
 
-/** The clubs as listed, with "None" moved to the end. */
-function ordered(clubs: string[]): string[] {
-  return [...clubs.filter((c) => c !== "None"), ...clubs.filter((c) => c === "None")];
+/** The club this system belongs to. A guest of it is by definition not in it. */
+const HOME_CLUB = "Cap & Gown";
+
+/**
+ * The clubs a guest can be from: everyone else, then "Not in a club" last.
+ *
+ * Cap & Gown is removed rather than merely discouraged. Somebody standing
+ * here is either a member — in which case they came the wrong way and their
+ * netID resolves them properly — or they are not, and the option is a lie.
+ */
+function guestClubs(clubs: string[]): string[] {
+  const others = clubs.filter((c) => c !== "None" && c !== HOME_CLUB);
+  return [...others, ...clubs.filter((c) => c === "None")];
 }
 
-export function GuestForm({ clubs, onSubmit, onCancel }: GuestFormProps) {
-  const [netid, setNetid] = useState("");
+export function GuestForm({ clubs, initialNetid = "", onSubmit, onCancel }: GuestFormProps) {
+  const [netid, setNetid] = useState(initialNetid);
   // Starts unchosen. Defaulting to the first club alphabetically meant a
   // careless submit filed a guest as a member of whichever club that was.
   const [club, setClub] = useState("");
@@ -73,7 +85,7 @@ export function GuestForm({ clubs, onSubmit, onCancel }: GuestFormProps) {
           </option>
           {/* "Not in a club" is an answer of last resort, so it sits at the
               bottom rather than wherever "None" falls alphabetically. */}
-          {ordered(clubs).map((name) => (
+          {guestClubs(clubs).map((name) => (
             <option key={name} value={name}>
               {name === "None" ? "Not in a club" : name}
             </option>

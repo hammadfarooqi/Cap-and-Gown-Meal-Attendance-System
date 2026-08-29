@@ -10,7 +10,7 @@ const db = createClient(
 const DOMAIN = "@e2eroster.invalid";
 const OFFICER = `officer${DOMAIN}`;
 const PASSWORD = "a good long password";
-const NETIDS = ["rosaaa01", "rosbbb02", "rosccc03"];
+const NETIDS = ["ro9001", "ro9002", "ro9003"];
 
 const csv = (people: [string, string][]) =>
   ["Juniors (2028),", "Name,Email Address", ...people.map(([n, e]) => `${n},${e}@princeton.edu`)].join("\n");
@@ -101,27 +101,27 @@ test("an upload changes nothing until it is confirmed", async ({ page }) => {
   // Everyone who is already a member, plus one newcomer — otherwise this
   // file would itself be a mass removal, which the guard rightly blocks.
   await upload(page, "roster.csv", csv([
-    ["Roster Person 0", "rosaaa01"],
-    ["Roster Person 1", "rosbbb02"],
-    ["Roster Person 2", "rosccc03"],
-    ["Brand New", "rosnew99"],
+    ["Roster Person 0", "ro9001"],
+    ["Roster Person 1", "ro9002"],
+    ["Roster Person 2", "ro9003"],
+    ["Brand New", "ro9099"],
   ]));
   await expect(page.getByTestId("diff-add")).toHaveText("1");
   await expect(page.getByTestId("diff-drop")).toHaveText("0");
 
   // The preview is on screen. Nothing has been written.
-  const { data } = await db.from("people").select("netid").eq("netid", "rosnew99");
+  const { data } = await db.from("people").select("netid").eq("netid", "ro9099");
   expect(data).toHaveLength(0);
 
   await page.getByRole("button", { name: "Apply these changes" }).click();
   await expect(page.getByRole("status")).toContainText("1 added");
 
   await expect.poll(async () => {
-    const { data: after } = await db.from("people").select("netid").eq("netid", "rosnew99");
+    const { data: after } = await db.from("people").select("netid").eq("netid", "ro9099");
     return after?.length ?? 0;
   }).toBe(1);
 
-  await db.from("people").delete().eq("netid", "rosnew99");
+  await db.from("people").delete().eq("netid", "ro9099");
 });
 
 test("A TRUNCATED FILE CANNOT SILENTLY EMPTY THE CLUB", async ({ page }) => {
@@ -129,7 +129,7 @@ test("A TRUNCATED FILE CANNOT SILENTLY EMPTY THE CLUB", async ({ page }) => {
   // everyone", and these are people who still have meals to eat.
   await signIn(page);
 
-  await upload(page, "truncated.csv", csv([["Roster Person 0", "rosaaa01"]]));
+  await upload(page, "truncated.csv", csv([["Roster Person 0", "ro9001"]]));
 
   await expect(page.getByTestId("diff-drop")).toHaveText("2");
   await expect(page.getByTestId("large-drop-warning")).toContainText("removes 2 of");
@@ -145,20 +145,20 @@ test("a departure sets is_member false and never deletes the row", async ({ page
   await signIn(page);
 
   await upload(page, "roster.csv", csv([
-    ["Roster Person 0", "rosaaa01"],
-    ["Roster Person 1", "rosbbb02"],
+    ["Roster Person 0", "ro9001"],
+    ["Roster Person 1", "ro9002"],
   ]));
 
   await expect(page.getByTestId("diff-drop")).toHaveText("1");
   await page.getByRole("button", { name: "Apply these changes" }).click();
   await expect(page.getByRole("status")).toBeVisible();
 
-  await expect.poll(() => isMember("rosccc03")).toBe(false);
+  await expect.poll(() => isMember("ro9003")).toBe(false);
 
   // The row survives, so their swipe history stays attached and they can
   // still eat here as somebody's guest.
-  const { data } = await db.from("people").select("netid, home_club").eq("netid", "rosccc03").single();
-  expect(data!.netid).toBe("rosccc03");
+  const { data } = await db.from("people").select("netid, home_club").eq("netid", "ro9003").single();
+  expect(data!.netid).toBe("ro9003");
   expect(data!.home_club).toBe("None");
 });
 
@@ -170,7 +170,7 @@ test("a bad file is rejected with reasons, and writes nothing", async ({ page })
   const errors = page.getByTestId("upload-errors");
   await expect(errors).toContainText("Nothing was changed");
   await expect(errors).toContainText("Row 2");
-  expect(await isMember("rosaaa01")).toBe(true);
+  expect(await isMember("ro9001")).toBe(true);
 });
 
 test("one person can be removed by hand", async ({ page }) => {
@@ -180,5 +180,5 @@ test("one person can be removed by hand", async ({ page }) => {
   await page.getByRole("row", { name: /Roster Person 1/ })
     .getByRole("button", { name: "Remove" }).click();
 
-  await expect.poll(() => isMember("rosbbb02")).toBe(false);
+  await expect.poll(() => isMember("ro9002")).toBe(false);
 });

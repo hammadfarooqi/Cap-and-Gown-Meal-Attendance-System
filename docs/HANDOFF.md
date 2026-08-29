@@ -158,6 +158,10 @@ Do not "fix" these without reading the reasoning first.
 - **People are never deleted.** Leaving the club sets `is_member = false`,
   which keeps swipe history attached and lets a departed member still eat as
   somebody's guest.
+- **A guest cannot be from Cap & Gown.** The club is removed from the guest
+  form's dropdown rather than merely discouraged: somebody standing there is
+  either a member, in which case their netID resolves them properly, or they
+  are not and the option is a lie.
 - **`credentials` maps ONE token to one person, enforced by a unique index.**
   A TigerCard carries two numbers, and the second is the first plus a
   four-digit suffix. Only the 15-digit base is stored, on the bet that the
@@ -168,9 +172,18 @@ Do not "fix" these without reading the reasoning first.
   members share a full name; eight surnames collide; a card carries the name
   of any student, not only a member. The match produces candidate tiles and a
   person always taps their own. See spec A8.
-- **`isValidNetid` is permissive; the photo filename matcher is not.**
-  Validating a typed netID has a human watching. Guessing a person from a
-  filename is silent, and a wrong guess puts the wrong face on a screen.
+- **`isValidNetid` is strict: two letters, four digits, nothing else.**
+  It was deliberately permissive until 2026-08-29, on the reasoning that a
+  typed netID has a human watching it. On-site testing reversed that: a
+  mistyped netID does not fail, it silently invents a person, records a meal
+  against them, and is indistinguishable from a real guest afterwards. All 196
+  members match the shape, measured before it was tightened.
+  **It guards more than the guest form** — bulk roster upload rejects the
+  whole file if one netID fails, so a February roster containing an unusual
+  netID fails loudly and all at once. That is intended, but know it before the
+  spring upload. The photo filename matcher stays stricter still, because
+  guessing a person from a filename is silent and a wrong guess puts the wrong
+  face on a screen.
 - **Averages divide by days that had swipes, not calendar days.** This is what
   makes deferring schedule exceptions safe.
 - **Relative analytics windows disappear for a past semester.** "Today" has no

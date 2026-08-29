@@ -38,7 +38,8 @@ type Notice =
   | { kind: "no-meal" }
   | { kind: "failed" }
   | { kind: "already-bound"; netid: string }
-  | { kind: "not-a-netid" };
+  | { kind: "not-a-netid" }
+  | { kind: "absent-netid"; netid: string };
 
 /** Replaces the idle screen. Each of these is waiting on a person. */
 type Takeover =
@@ -49,6 +50,7 @@ type Takeover =
       nameParts: string[];
       entryMethod: "scan" | "manual";
       typed: string | null;
+      suggestedName: string | null;
     }
   | {
       kind: "guest-form";
@@ -56,6 +58,7 @@ type Takeover =
       nameParts: string[];
       entryMethod: "scan" | "manual";
       typed: string | null;
+      suggestedName: string | null;
     };
 
 const noticeDuration = (notice: Notice, base: number) =>
@@ -226,20 +229,36 @@ export function StationScreen({
           .then((result) => setUnsynced(result.remaining))
           .catch(() => {});
       } else if (outcome.kind === "candidates") {
-        showTakeover({
-          kind: "candidates",
-          card: outcome.card,
-          candidates: outcome.candidates,
-          nameParts: outcome.nameParts,
-          entryMethod: outcome.entryMethod,
-          typed: outcome.typed,
-        });
+        // Nobody to offer. The tile screen would be a question with no
+        // answers on it, so go where they were going anyway.
+        showTakeover(
+          outcome.candidates.length === 0
+            ? {
+                kind: "guest-form",
+                card: outcome.card,
+                nameParts: outcome.nameParts,
+                entryMethod: outcome.entryMethod,
+                typed: outcome.typed,
+                suggestedName: outcome.suggestedName,
+              }
+            : {
+                kind: "candidates",
+                card: outcome.card,
+                candidates: outcome.candidates,
+                nameParts: outcome.nameParts,
+                entryMethod: outcome.entryMethod,
+                typed: outcome.typed,
+                suggestedName: outcome.suggestedName,
+              },
+        );
       } else if (outcome.kind === "unenrolled") {
         // No amount of retrying fixes a dead token. Hand the tablet back to
         // the enrolment screen rather than showing a network error forever.
         reportUnenrolled();
       } else if (outcome.kind === "already-bound") {
         showNotice({ kind: "already-bound", netid: outcome.netid });
+      } else if (outcome.kind === "absent-netid") {
+        showNotice({ kind: "absent-netid", netid: outcome.netid });
       } else {
         showNotice({ kind: outcome.kind });
       }
@@ -298,6 +317,7 @@ export function StationScreen({
               nameParts: takeover.nameParts,
               entryMethod: takeover.entryMethod,
               typed: takeover.typed,
+              suggestedName: takeover.suggestedName,
             })
           }
           onCancel={returnToIdle}
@@ -308,12 +328,14 @@ export function StationScreen({
         <GuestForm
           clubs={clubs}
           initialNetid={takeover.typed ?? ""}
+          initialName={takeover.suggestedName ?? ""}
           onCancel={returnToIdle}
-          onSubmit={async (netid, club) =>
+          onSubmit={async (netid, club, fullName) =>
             finish(
               await createGuest(takeover.card, netid, club, deps, {
                 cardName: takeover.nameParts,
                 entryMethod: takeover.entryMethod,
+                fullName,
               }),
             )
           }
@@ -375,6 +397,13 @@ export function StationScreen({
                 <p data-testid="failed" className="max-w-2xl text-center text-2xl text-ink">
                   Could not reach the server —{" "}
                   <span className="text-ink-secondary">not counted</span>
+                </p>
+              )}
+
+              {notice.kind === "absent-netid" && (
+                <p data-testid="absent-netid" className="max-w-2xl text-center text-2xl text-ink">
+                  No such netID —{" "}
+                  <span className="text-ink-secondary">check the spelling</span>
                 </p>
               )}
 

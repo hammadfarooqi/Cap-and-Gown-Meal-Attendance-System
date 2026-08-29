@@ -1,8 +1,20 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 import { serviceClient } from "@/lib/db/client";
 import { createEnrollmentCode, redeemEnrollmentCode } from "@/lib/auth/device";
 import { readVersions } from "@/lib/api/envelope";
 import { POST } from "./route";
+import { lookupDirectory } from "@/lib/directory/ldap";
+
+/**
+ * The directory is stubbed here on purpose.
+ *
+ * These fixtures are invented people, and inventing a netID is now refused —
+ * which is the point of the existence check. Stubbing also lets each branch
+ * be tested deterministically; the real server is exercised once, in
+ * lib/directory/ldap.test.ts, where that distinction is what is under test.
+ */
+vi.mock("@/lib/directory/ldap", () => ({ lookupDirectory: vi.fn() }));
+const directory = vi.mocked(lookupDirectory);
 
 const db = serviceClient();
 const DEVICE = "guesttest-lane";
@@ -19,6 +31,9 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  // Default: the directory could not be reached. Nobody is refused, and a
+  // name falls back exactly as it did before any of this existed.
+  directory.mockResolvedValue({ status: "unavailable" });
   await db.from("credentials").delete().in("token", [CARD, CARD2]);
   await db.from("people").delete().in("netid", [GUEST, EXMEMBER, MEMBER]);
 
@@ -153,6 +168,47 @@ describe("POST /api/guests", () => {
     const { data } = await db
       .from("credentials").select("token").eq("netid", MEMBER);
     expect(data!.map((r) => r.token)).toEqual([CARD]);
+  });
+
+  it("REFUSES A NETID THE DIRECTORY IS CERTAIN DOES NOT EXIST", async () => {
+    // hf4899 for hf4888 is well-formed, passes every local check, and used to
+    // invent a person no later query could tell from a real guest.
+    directory.mockResolvedValue({ status: "absent" });
+
+    const res = await POST(request({ netid: GUEST, homeClub: "Cottage" }, token));
+
+    expect(res.status).toBe(422);
+    expect(await personRow(GUEST)).toBeNull();
+  });
+
+  it("REFUSES NOBODY WHEN THE DIRECTORY IS SIMPLY UNREACHABLE", async () => {
+    // The asymmetry the whole design rests on. A slow directory must never
+    // turn into a person refused at the door.
+    directory.mockResolvedValue({ status: "unavailable" });
+
+    const res = await POST(request({ netid: GUEST, homeClub: "Cottage" }, token));
+
+    expect(res.status).toBe(200);
+    expect(await personRow(GUEST)).not.toBeNull();
+  });
+
+  it("takes the name from the directory, and records it for matching", async () => {
+    directory.mockResolvedValue({ status: "found", netid: GUEST, fullName: "Given Surname" });
+
+    const res = await POST(request({ netid: GUEST, homeClub: "Cottage" }, token));
+
+    expect((await res.json()).data.fullName).toBe("Given Surname");
+    expect((await personRow(GUEST))!.directory_name).toBe("Given Surname");
+  });
+
+  it("DOES NOT ASK THE DIRECTORY ABOUT SOMEBODY IT ALREADY KNOWS", async () => {
+    // A member or a returning guest is already identified. A lookup there is
+    // latency spent to learn nothing, on the path a person is waiting on.
+    directory.mockClear();
+
+    await POST(request({ netid: MEMBER, homeClub: "Cottage" }, token));
+
+    expect(directory).not.toHaveBeenCalled();
   });
 
   it("NAMES A NEW GUEST FROM THE CARD instead of their netID", async () => {

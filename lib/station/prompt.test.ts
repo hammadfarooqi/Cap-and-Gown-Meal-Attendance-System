@@ -40,6 +40,8 @@ const okResult = <T,>(data: T) =>
 function fakeApi(over: Partial<StationApi> = {}): StationApi {
   return {
     bootstrap: vi.fn(), resolve: vi.fn(), bind: vi.fn(),
+    // Default: the directory could not be asked, so nobody is refused.
+    directory: vi.fn().mockResolvedValue({ ok: false, status: null }),
     createGuest: vi.fn().mockResolvedValue(okResult(GUEST)),
     sync: vi.fn(),
     ...over,
@@ -128,7 +130,7 @@ describe("createGuest", () => {
     const outcome = await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api), { cardName: [], entryMethod: "scan" });
 
     expect(outcome).toEqual({ kind: "checked-in", person: GUEST, mealPeriod: "lunch" });
-    expect(api.createGuest).toHaveBeenCalledWith(DEVICE_TOKEN, "gg9999", "Cottage", "CARD-G", []);
+    expect(api.createGuest).toHaveBeenCalledWith(DEVICE_TOKEN, "gg9999", "Cottage", "CARD-G", [], undefined);
     expect((await store.resolveToken("CARD-G"))?.netid).toBe("gg9999");
     expect(await store.outboxSize()).toBe(1);
   });
@@ -140,7 +142,7 @@ describe("createGuest", () => {
     await createGuest("CARD-G", "gg9999", "Cottage", deps(store, api), { cardName: ["ALICE", "BROWNING"], entryMethod: "scan" });
 
     expect(api.createGuest).toHaveBeenCalledWith(
-      DEVICE_TOKEN, "gg9999", "Cottage", "CARD-G", ["ALICE", "BROWNING"],
+      DEVICE_TOKEN, "gg9999", "Cottage", "CARD-G", ["ALICE", "BROWNING"], undefined,
     );
   });
 

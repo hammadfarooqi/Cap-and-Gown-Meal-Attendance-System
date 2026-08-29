@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth/admin";
 import { serviceClient } from "@/lib/db/client";
 import { bumpVersion } from "@/lib/api/envelope";
-import { isValidNetid } from "@/lib/directory/lookup";
+import { isValidNetid } from "@/lib/directory/netid";
 
 /**
  * Store one already-processed headshot.

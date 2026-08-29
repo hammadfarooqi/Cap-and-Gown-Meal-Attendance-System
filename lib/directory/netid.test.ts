@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isValidNetid, lookupNetid } from "./lookup";
+import { isValidNetid, normaliseNetid } from "./netid";
 
 describe("isValidNetid", () => {
   it.each(["ab1234", "zz9999", "hl7165"])("accepts %s", (n) => {
@@ -29,18 +29,13 @@ describe("isValidNetid", () => {
   });
 });
 
-describe("lookupNetid", () => {
-  it("normalises case and whitespace", async () => {
-    expect(await lookupNetid("  AB1234 ")).toEqual({ netid: "ab1234", fullName: null });
+describe("normaliseNetid", () => {
+  it("trims and lowercases", () => {
+    expect(normaliseNetid("  AB1234 ")).toBe("ab1234");
   });
 
-  it("returns null for something that is not a netID", async () => {
-    expect(await lookupNetid("not a netid")).toBeNull();
-  });
-
-  it("returns a null name while the real directory is unresolved (O2)", async () => {
-    // When O2 closes, this test changes and the guest ledger gains names.
-    // Until then it documents that a null name is expected, not a bug.
-    expect((await lookupNetid("ab1234"))!.fullName).toBeNull();
+  it("returns null for anything that is not a netID", () => {
+    expect(normaliseNetid("not a netid")).toBeNull();
+    expect(normaliseNetid("abc123")).toBeNull();
   });
 });

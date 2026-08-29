@@ -24,6 +24,8 @@ function fakeApi(over: Partial<StationApi> = {}): StationApi {
       .mockResolvedValue(okResult({ people: [], credentials: [], schedule: [], clubs: [] })),
     resolve: vi.fn(),
     bind: vi.fn().mockResolvedValue(okResult({ token: "x", netid: "y" })),
+    // Default: the directory could not be asked, so nobody is refused.
+    directory: vi.fn().mockResolvedValue({ ok: false, status: null }),
     createGuest: vi.fn(),
     sync: vi.fn().mockResolvedValue(okResult({ accepted: 1, skipped: 0 })),
     ...over,

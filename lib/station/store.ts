@@ -5,6 +5,13 @@ import type { Versions } from "@/lib/api/envelope";
 export type CachedPerson = {
   netid: string;
   fullName: string;
+  /**
+   * What the University calls them, when it differs from the roster.
+   *
+   * Never shown. Used only so a card printed with somebody's legal name
+   * still matches a roster entry holding the name they go by.
+   */
+  directoryName?: string | null;
   isMember: boolean;
   homeClub: string | null;
   photoPath: string | null;

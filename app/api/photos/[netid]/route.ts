@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { authenticateDevice } from "@/lib/auth/device";
 import { adminOrNull } from "@/lib/auth/admin";
 import { serviceClient } from "@/lib/db/client";
-import { isValidNetid } from "@/lib/directory/lookup";
+import { isValidNetid } from "@/lib/directory/netid";
 
 /**
  * Serve a headshot from the private bucket.

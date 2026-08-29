@@ -63,6 +63,13 @@ export async function createGuest(
     cardName: string[];
     /** How the identifier arrived. See bindMember. */
     entryMethod: "scan" | "manual";
+    /**
+     * Whatever was in the name box when they submitted.
+     *
+     * Pre-filled from the card or the directory and then editable, so this is
+     * the one a human actually saw and accepted. It wins over both.
+     */
+    fullName?: string;
   },
 ): Promise<ScanOutcome> {
   const at = deps.now?.() ?? new Date();
@@ -70,7 +77,14 @@ export async function createGuest(
   const meal = deriveMeal(at, await deps.store.getSchedule());
   if (!meal) return { kind: "no-meal" };
 
-  const result = await deps.api.createGuest(deps.deviceToken, netid, homeClub, card, from.cardName);
+  const result = await deps.api.createGuest(
+    deps.deviceToken,
+    netid,
+    homeClub,
+    card,
+    from.cardName,
+    from.fullName,
+  );
 
   // Spec section 8. That person already has a card, which means a replacement
   // or the wrong netID — neither is safe to guess at, and neither is a

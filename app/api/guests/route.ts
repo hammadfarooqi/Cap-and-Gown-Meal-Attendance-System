@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { authenticateDevice } from "@/lib/auth/device";
 import { serviceClient } from "@/lib/db/client";
 import { envelope, bumpVersion } from "@/lib/api/envelope";
-import { lookupNetid } from "@/lib/directory/lookup";
+import { normaliseNetid } from "@/lib/directory/netid";
+import { lookupDirectory } from "@/lib/directory/ldap";
 
 const UNIQUE_VIOLATION = "23505";
 const FOREIGN_KEY_VIOLATION = "23503";
@@ -49,18 +50,20 @@ export async function POST(req: Request) {
     ? body.cardName.filter((p: unknown): p is string => typeof p === "string" && p.length > 0)
     : [];
 
+  /** What a human typed or accepted in the form's name box. */
+  const typedName = typeof body?.fullName === "string" ? body.fullName.trim() : "";
+
   /** "ALICE/BROWNING" -> "Alice Browning". */
   const nameFromCard = cardName
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ");
 
-  const directory = await lookupNetid(rawNetid);
-  if (!directory || !homeClub) {
+  const netid = normaliseNetid(rawNetid);
+  if (!netid || !homeClub) {
     return NextResponse.json({ error: "valid netid and homeClub required" }, { status: 400 });
   }
 
   const db = serviceClient();
-  const netid = directory.netid;
 
   const { data: existing } = await db
     .from("people")
@@ -73,14 +76,33 @@ export async function POST(req: Request) {
   if (existing) {
     person = existing as PersonRow;
   } else {
+    // Only ask the directory about somebody we are about to invent. A member
+    // or a returning guest is already known, and a lookup would be latency
+    // spent to learn nothing.
+    const directory = await lookupDirectory(netid);
+
+    // "No such netID" is the one answer allowed to refuse a person, and it is
+    // what stops a well-formed typo — hf4899 for hf4888 — becoming a phantom
+    // guest that no later query can tell from a real one. A directory that is
+    // merely unreachable refuses nobody.
+    if (directory.status === "absent") {
+      return NextResponse.json(
+        { error: "no such netID", netid },
+        { status: 422 },
+      );
+    }
+
+    const directoryName = directory.status === "found" ? directory.fullName : null;
+
     const { data: created, error } = await db
       .from("people")
       .insert({
         netid,
-        // Directory first once O2 closes, then the stripe, then the netID.
-        // A typed netID carries no name at all, which is the case that still
-        // wants the directory.
-        full_name: directory.fullName ?? (nameFromCard || netid),
+        // What a human saw and accepted wins, because they were looking at
+        // the person. Then the directory, then the card's stripe, then the
+        // netID itself.
+        full_name: typedName || directoryName || nameFromCard || netid,
+        directory_name: directoryName,
         is_member: false,
         home_club: homeClub,
       })

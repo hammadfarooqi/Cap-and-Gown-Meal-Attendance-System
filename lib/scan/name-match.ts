@@ -94,16 +94,25 @@ export function namesMatch(cardName: string[], fullName: string): boolean {
 /**
  * Everyone the card's name could refer to.
  *
+ * Matched against BOTH names a person may have: the roster's `fullName`,
+ * which is what the club calls them, and `directoryName`, which is what the
+ * University does. A card is printed from the University's record, so for
+ * anyone whose roster entry is a preferred name the two disagree — measured
+ * at 5 of 196 members, four of them a nickname against a legal first name.
+ * Either name matching is enough.
+ *
  * Order follows the list given, so a caller that passes people in a stable
  * order gets a stable screen.
  */
-export function nameCandidates<T extends { fullName: string }>(
+export function nameCandidates<T extends { fullName: string; directoryName?: string | null }>(
   cardName: string[],
   people: T[],
 ): T[] {
   const card = nameChunks(cardName.join(" "));
   if (card.length < MIN_CORRESPONDING) return [];
-  return people.filter(
-    (person) => corresponding(card, nameChunks(person.fullName)) >= MIN_CORRESPONDING,
-  );
+
+  const matches = (name: string | null | undefined) =>
+    Boolean(name) && corresponding(card, nameChunks(name!)) >= MIN_CORRESPONDING;
+
+  return people.filter((person) => matches(person.fullName) || matches(person.directoryName));
 }

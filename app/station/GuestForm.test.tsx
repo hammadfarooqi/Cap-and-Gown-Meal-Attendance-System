@@ -57,6 +57,33 @@ describe("GuestForm", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it("DOES NOT FOCUS A NETID BOX THAT IS ALREADY FILLED", async () => {
+    // Focusing it pops the tablet's on-screen keyboard over a form whose next
+    // field is a dropdown. They typed the netID a moment ago; the thing they
+    // still have to do is pick a club.
+    render(<GuestForm clubs={CLUBS} initialNetid="ab1234" onSubmit={vi.fn()} onCancel={vi.fn()} />);
+
+    expect(screen.getByLabelText("Guest netID")).not.toHaveFocus();
+  });
+
+  it("focuses it when it is empty, which is the card path", async () => {
+    render(<GuestForm clubs={CLUBS} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+
+    expect(screen.getByLabelText("Guest netID")).toHaveFocus();
+  });
+
+  it("TELLS A MEMBER WHAT TO DO, not who to go and find", async () => {
+    // This screen is reached automatically when a card matches nobody, and
+    // that path carries members — five of 196, measured. On a screen headed
+    // "Guest form" this line is the only thing that rescues them, so it has
+    // to name an action they can take at the tablet.
+    render(<GuestForm clubs={CLUBS} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+
+    const help = screen.getByText(/member/i);
+    expect(help).toHaveTextContent(/type your netid/i);
+    expect(help).not.toHaveTextContent(/officer/i);
+  });
+
   it("REFUSES TO SUBMIT UNTIL A CLUB IS CHOSEN", async () => {
     // It used to default to whichever club came first alphabetically, so a
     // careless submit filed the guest as a member of that club.

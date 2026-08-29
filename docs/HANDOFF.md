@@ -137,9 +137,13 @@ the real roster has — a duplicated full name, a surname shared four ways,
 accents, apostrophes, hyphenated and double surnames. Tests must also not
 depend on the current roster, so they still pass in two years.
 
-**`GuestForm.test.tsx` flakes under load.** A `userEvent` test with a 5-second
-timeout has taken 233 seconds inside a full run and then passed in 801ms alone.
-If it goes red on its own, re-run it before hunting a bug.
+**Two tests flake under load, and both look like real failures.**
+`GuestForm.test.tsx` has taken 233 seconds inside a full run for a `userEvent`
+test with a 5-second timeout, then passed in 801ms alone. And the offline
+shell test waits for the service worker to take control, which needs about
+four seconds alone and has exceeded fifteen inside a full run — its budget is
+now 60 seconds for that reason, not because the assertion is soft. If either
+goes red on its own, re-run it before hunting a bug.
 
 ---
 

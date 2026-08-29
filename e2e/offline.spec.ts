@@ -222,8 +222,13 @@ test("5. the app loads at all after a reload with the network off", async ({
   // Wait for the worker to actually CONTROL the page. A worker that has
   // registered but not yet taken over intercepts nothing, and the test would
   // fail for the wrong reason.
+  //
+  // Generous on purpose. Alone this takes about four seconds; inside a full
+  // run on a loaded machine it has exceeded fifteen. The assertion is
+  // unchanged — the worker must still be in control before anything offline
+  // is tested — only the patience is.
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller), null, {
-    timeout: 15_000,
+    timeout: 60_000,
   });
 
   await context.setOffline(true);

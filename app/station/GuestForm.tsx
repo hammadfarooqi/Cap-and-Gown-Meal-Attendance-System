@@ -29,16 +29,20 @@ function guestClubs(clubs: string[]): string[] {
 }
 
 /**
- * Identify whoever is standing there.
+ * The guest form — which is also, quietly, how a member gets rescued.
  *
- * NOT titled "Guest", and that matters. Its netID box resolves all three
- * kinds of person: a member is checked in as a member and their card bound, a
- * returning guest is recognised, a new netID becomes a guest. It is reached
- * by tapping past the tiles AND automatically when a card matches nobody —
- * and that second path carries members, namely anyone whose card is printed
- * with a name their roster entry does not hold. Five of 196, measured. A
- * screen headed "Guest" would be telling those five something untrue at the
- * one moment they most need to understand what to do.
+ * Its netID box resolves all three kinds of person: a member is checked in as
+ * a member and their card bound, a returning guest is recognised, a new netID
+ * becomes a guest. That matters because this screen is reached automatically
+ * when a card matches nobody, and that path carries members — anyone whose
+ * card is printed with a name their roster entry does not hold. Five of 196,
+ * measured.
+ *
+ * So the heading says "Guest form", because that is what it is nine times in
+ * ten and the operator needs to recognise it. The line at the bottom carries
+ * the rest: it tells a member to type their netID HERE rather than sending
+ * them to find an officer, because typing it actually works and fetching a
+ * human does not. If that heading is ever changed, that line has to stay.
  */
 export function GuestForm({
   clubs,
@@ -69,7 +73,7 @@ export function GuestForm({
         if (valid) onSubmit(netid.trim().toLowerCase(), club, fullName.trim());
       }}
     >
-      <h2 className="text-center text-2xl font-semibold">Type your netID</h2>
+      <h2 className="text-center text-2xl font-semibold">Guest form</h2>
 
       <label className="flex flex-col gap-1">
         <span className="text-sm text-ink-secondary">Name</span>
@@ -85,7 +89,9 @@ export function GuestForm({
       <label className="flex flex-col gap-1">
         <span className="text-sm text-ink-secondary">netID</span>
         <input
-          autoFocus
+          // Only when it is empty. Focusing a box that is already filled pops
+          // the on-screen keyboard over a form whose next field is a dropdown.
+          autoFocus={!initialNetid}
           type="text"
           value={netid}
           onChange={(e) => setNetid(e.target.value)}
@@ -144,12 +150,11 @@ export function GuestForm({
         </button>
       </div>
 
-      {/* This used to live on the screen before this one, which no longer
-          appears when nobody matches. It is the only thing telling a member
-          who arrived here by accident that there is a way out. */}
+      {/* The only thing on a screen headed "Guest" telling a member who
+          landed here by accident what to do — and it has to be an action they
+          can take, not a person they have to go and find. */}
       <p className="text-center text-sm text-ink-muted">
-        If you are a member and this is not working, please ask an officer or
-        the business manager.
+        A member? Type your netID above and we will check you in as one.
       </p>
     </form>
   );

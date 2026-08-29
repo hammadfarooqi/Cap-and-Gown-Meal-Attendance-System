@@ -1,6 +1,6 @@
 import { deriveMeal } from "@/lib/meals/derive";
 import { parseCardSwipe } from "@/lib/scan/card";
-import { isValidNetid } from "@/lib/directory/lookup";
+import { isValidNetid } from "@/lib/directory/netid";
 import { nameCandidates } from "@/lib/scan/name-match";
 import type { StationStore, CachedPerson } from "./store";
 import type { StationApi } from "./api";
@@ -25,6 +25,11 @@ export type ScanOutcome =
       /** How the identifier arrived, carried through to whatever is recorded. */
       entryMethod: "scan" | "manual";
       /**
+       * A name to put in the form's box: off the card, or from the directory.
+       * Null when neither could tell us.
+       */
+      suggestedName: string | null;
+      /**
        * What was typed, when it was typed rather than swiped.
        *
        * Only used to pre-fill the guest form. Somebody who has just typed
@@ -38,6 +43,8 @@ export type ScanOutcome =
   | { kind: "already-bound"; netid: string }
   /** Typed, but not shaped like a netID. Nothing can be done with it. */
   | { kind: "not-a-netid" }
+  /** Shaped like one, but the directory is certain no such person exists. */
+  | { kind: "absent-netid"; netid: string }
   /** The server says this tablet is not enrolled. It must be set up again. */
   | { kind: "unenrolled" };
 
@@ -100,6 +107,15 @@ export async function checkIn(
  * A typed netID is none of these. It is the identity itself, so it resolves
  * against the whole roster and checks in with nothing to bind.
  */
+/** "ALICE/BROWNING" -> "Alice Browning", for the name box. */
+function titleCase(parts: string[]): string | null {
+  const name = parts
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+    .join(" ")
+    .trim();
+  return name || null;
+}
+
 export async function resolveScan(
   raw: string,
   deps: ResolveDeps,
@@ -125,6 +141,16 @@ export async function resolveScan(
 
     const person = (await deps.store.allPeople()).find((p) => p.netid === swipe.token);
     if (person) return checkIn(person, meal.mealPeriod, at, entryMethod, deps);
+
+    // Nobody we know. Ask the directory once — it answers both questions at
+    // hand: whether this netID can exist at all, and what to put in the name
+    // box. A netID that is certainly not real is refused here rather than
+    // becoming a person nothing downstream can tell from a real guest.
+    const directory = await deps.api.directory(deps.deviceToken, swipe.token);
+    if (directory.ok && directory.data.status === "absent") {
+      return { kind: "absent-netid", netid: swipe.token };
+    }
+
     return {
       kind: "candidates",
       card: null,
@@ -132,6 +158,12 @@ export async function resolveScan(
       nameParts: [],
       entryMethod,
       typed: swipe.token,
+      // Absent a directory answer this stays null and the box opens empty,
+      // which is exactly what happened before the directory existed.
+      suggestedName:
+        directory.ok && directory.data.status === "found"
+          ? (directory.data.fullName ?? null)
+          : null,
     };
   }
 
@@ -165,6 +197,8 @@ export async function resolveScan(
       nameParts: swipe.nameParts,
       entryMethod,
       typed: null,
+      // The stripe already told us who the card belongs to.
+      suggestedName: titleCase(swipe.nameParts),
     };
   }
 

@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { isValidNetid } from "@/lib/directory/lookup";
+import { isValidNetid } from "@/lib/directory/netid";
 
 type GuestFormProps = {
   clubs: string[];
   /** Pre-filled when they got here by typing a netID we did not recognise. */
   initialNetid?: string;
-  onSubmit: (netid: string, homeClub: string) => void;
+  /** From the card's printed name, or the directory. Editable either way. */
+  initialName?: string;
+  onSubmit: (netid: string, homeClub: string, fullName: string) => void;
   onCancel: () => void;
 };
 
@@ -26,8 +28,27 @@ function guestClubs(clubs: string[]): string[] {
   return [...others, ...clubs.filter((c) => c === "None")];
 }
 
-export function GuestForm({ clubs, initialNetid = "", onSubmit, onCancel }: GuestFormProps) {
+/**
+ * Identify whoever is standing there.
+ *
+ * NOT titled "Guest", and that matters. Its netID box resolves all three
+ * kinds of person: a member is checked in as a member and their card bound, a
+ * returning guest is recognised, a new netID becomes a guest. It is reached
+ * by tapping past the tiles AND automatically when a card matches nobody —
+ * and that second path carries members, namely anyone whose card is printed
+ * with a name their roster entry does not hold. Five of 196, measured. A
+ * screen headed "Guest" would be telling those five something untrue at the
+ * one moment they most need to understand what to do.
+ */
+export function GuestForm({
+  clubs,
+  initialNetid = "",
+  initialName = "",
+  onSubmit,
+  onCancel,
+}: GuestFormProps) {
   const [netid, setNetid] = useState(initialNetid);
+  const [fullName, setFullName] = useState(initialName);
   // Starts unchosen. Defaulting to the first club alphabetically meant a
   // careless submit filed a guest as a member of whichever club that was.
   const [club, setClub] = useState("");
@@ -45,10 +66,21 @@ export function GuestForm({ clubs, initialNetid = "", onSubmit, onCancel }: Gues
         setTouched(true);
         // Checked here as well as on the server so an obvious typo never
         // costs a round trip while someone waits at the tablet.
-        if (valid) onSubmit(netid.trim().toLowerCase(), club);
+        if (valid) onSubmit(netid.trim().toLowerCase(), club, fullName.trim());
       }}
     >
-      <h2 className="text-center text-2xl font-semibold">Guest</h2>
+      <h2 className="text-center text-2xl font-semibold">Type your netID</h2>
+
+      <label className="flex flex-col gap-1">
+        <span className="text-sm text-ink-secondary">Name</span>
+        <input
+          type="text"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          aria-label="Name"
+          className="rounded-lg bg-surface px-4 py-3 text-xl text-ink ring-1 ring-line-strong"
+        />
+      </label>
 
       <label className="flex flex-col gap-1">
         <span className="text-sm text-ink-secondary">netID</span>
@@ -111,6 +143,14 @@ export function GuestForm({ clubs, initialNetid = "", onSubmit, onCancel }: Gues
           Cancel
         </button>
       </div>
+
+      {/* This used to live on the screen before this one, which no longer
+          appears when nobody matches. It is the only thing telling a member
+          who arrived here by accident that there is a way out. */}
+      <p className="text-center text-sm text-ink-muted">
+        If you are a member and this is not working, please ask an officer or
+        the business manager.
+      </p>
     </form>
   );
 }

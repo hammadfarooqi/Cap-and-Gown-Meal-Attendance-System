@@ -6,6 +6,7 @@ import { envelope } from "@/lib/api/envelope";
 type PersonRow = {
   netid: string;
   full_name: string;
+  directory_name: string | null;
   is_member: boolean;
   home_club: string | null;
   photo_path: string | null;
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
   const db = serviceClient();
   const { data } = await db
     .from("credentials")
-    .select("token, people(netid, full_name, is_member, home_club, photo_path)")
+    .select("token, people(netid, full_name, directory_name, is_member, home_club, photo_path)")
     .eq("token", token)
     .maybeSingle();
 
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
     await envelope({
       netid: person.netid,
       fullName: person.full_name,
+      directoryName: person.directory_name,
       isMember: person.is_member,
       homeClub: person.home_club,
       photoPath: person.photo_path,

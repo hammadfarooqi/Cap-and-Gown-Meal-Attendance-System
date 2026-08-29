@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const db = serviceClient();
 
   const [people, credentials, schedule, clubs] = await Promise.all([
-    db.from("people").select("netid, full_name, is_member, home_club, photo_path"),
+    db.from("people").select("netid, full_name, directory_name, is_member, home_club, photo_path"),
     db.from("credentials").select("token, netid"),
     db
       .from("meal_schedule")
@@ -35,6 +35,7 @@ export async function GET(req: Request) {
       people: people.data.map((p) => ({
         netid: p.netid,
         fullName: p.full_name,
+        directoryName: p.directory_name,
         isMember: p.is_member,
         homeClub: p.home_club,
         photoPath: p.photo_path,

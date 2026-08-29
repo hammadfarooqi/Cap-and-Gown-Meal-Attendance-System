@@ -72,6 +72,8 @@ function fakeApi(over: Partial<StationApi> = {}): StationApi {
     bootstrap: vi.fn(),
     resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }),
     bind: vi.fn(),
+    // Default: the directory could not be asked, so nobody is refused.
+    directory: vi.fn().mockResolvedValue({ ok: false, status: null }),
     createGuest: vi.fn(),
     sync: vi.fn(),
     ...over,

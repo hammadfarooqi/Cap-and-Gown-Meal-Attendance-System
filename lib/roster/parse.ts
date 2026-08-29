@@ -1,5 +1,5 @@
 import { parseCsv } from "./csv-parse";
-import { isValidNetid } from "@/lib/directory/lookup";
+import { isValidNetid } from "@/lib/directory/netid";
 
 export type RosterRow = {
   netid: string;

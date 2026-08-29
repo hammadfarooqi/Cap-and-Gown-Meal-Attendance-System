@@ -100,12 +100,30 @@ export const api = {
     homeClub: string,
     card: string | null,
     cardName: string[] = [],
+    fullName?: string,
     timing?: TimingOptions,
   ) =>
     request<CachedPerson>(
       "/api/guests",
       deviceToken,
-      { method: "POST", body: JSON.stringify({ netid, homeClub, token: card, cardName }) },
+      {
+        method: "POST",
+        body: JSON.stringify({ netid, homeClub, token: card, cardName, fullName }),
+      },
+      timing,
+    ),
+
+  /**
+   * "Is this a real netID, and what is the person called?"
+   *
+   * Only asked about a netID the tablet does not already know. Fails soft:
+   * the caller treats any failure as "could not ask" and refuses nobody.
+   */
+  directory: (deviceToken: string, netid: string, timing?: TimingOptions) =>
+    request<{ status: "found" | "absent" | "unavailable"; fullName?: string }>(
+      "/api/directory",
+      deviceToken,
+      { method: "POST", body: JSON.stringify({ netid }) },
       timing,
     ),
 

@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth/admin";
 import { serviceClient } from "@/lib/db/client";
 import { bumpVersion } from "@/lib/api/envelope";
-import { isValidNetid } from "@/lib/directory/lookup";
+import { isValidNetid } from "@/lib/directory/netid";
+import { lookupDirectory } from "@/lib/directory/ldap";
 
 /** Add or correct one person. Faster than a file for the single typo that is
  *  most of what actually happens during term. */
+/** Needs a socket for the directory lookup. */
+export const runtime = "nodejs";
+
 export async function POST(req: Request) {
   const denied = await requireAdminApi();
   if (denied) return denied;
@@ -19,8 +23,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "A valid netID and a name are required." }, { status: 400 });
   }
 
+  // Best effort, same as the bulk upload: a member added by hand should match
+  // their card whether the name typed here is their legal one or the one they
+  // go by. A directory that does not answer leaves it null and nothing breaks.
+  const directory = await lookupDirectory(netid);
+
   const { error } = await serviceClient().from("people").upsert(
-    { netid, full_name: fullName, class_year: classYear, is_member: true, home_club: "Cap & Gown" },
+    {
+      netid,
+      full_name: fullName,
+      class_year: classYear,
+      is_member: true,
+      home_club: "Cap & Gown",
+      ...(directory.status === "found" ? { directory_name: directory.fullName } : {}),
+    },
     { onConflict: "netid" },
   );
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

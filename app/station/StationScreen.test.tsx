@@ -64,6 +64,8 @@ function fakeApi(over: Partial<StationApi> = {}): StationApi {
     bootstrap: vi.fn(),
     resolve: vi.fn().mockResolvedValue({ ok: false, status: 404 }),
     bind: vi.fn(),
+    // Default: the directory could not be asked, so nobody is refused.
+    directory: vi.fn().mockResolvedValue({ ok: false, status: null }),
     createGuest: vi.fn(),
     sync: vi.fn().mockResolvedValue({ ok: true, data: { accepted: 1, skipped: 0 }, versions: { roster: 1, schedule: 1 } }),
     ...over,
@@ -190,15 +192,24 @@ describe("StationScreen", () => {
     );
   });
 
-  it("offers no tiles and the guest route when the card names nobody", async () => {
+  it("GOES STRAIGHT TO THE FORM when the card matches nobody", async () => {
+    // The tile screen would be a question with no answers on it.
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
     await scan(UNKNOWN_CARD);
 
-    expect(await screen.findByTestId("candidates")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /guest/i })).toBeInTheDocument();
-    expect(screen.queryByText("Carol Clark")).not.toBeInTheDocument();
+    expect(await screen.findByLabelText("Guest netID")).toBeInTheDocument();
+    expect(screen.queryByTestId("candidates")).not.toBeInTheDocument();
+  });
+
+  it("PRE-FILLS THE NAME OFF THE CARD, so nothing is retyped", async () => {
+    mount(await seeded(), fakeApi());
+    await screen.findByTestId("idle");
+
+    await scan(UNKNOWN_CARD);
+
+    expect(await screen.findByLabelText("Name")).toHaveValue("John Smith");
   });
 
   it("BINDS ON THE FIRST SWIPE AND IS INSTANT ON THE SECOND", async () => {
@@ -225,7 +236,7 @@ describe("StationScreen", () => {
     mount(await seeded(), fakeApi());
     await screen.findByTestId("idle");
 
-    await scan(UNKNOWN_CARD);
+    await scan(CAROL_CARD);
     await screen.findByTestId("candidates");
 
     await new Promise((resolve) => setTimeout(resolve, HOLD_MS * 4));
@@ -440,8 +451,7 @@ describe("StationScreen", () => {
       await screen.findByTestId("idle");
 
       await scan(UNKNOWN_CARD);
-      await userEvent.click(await screen.findByRole("button", { name: /guest/i }));
-      await userEvent.type(screen.getByLabelText("Guest netID"), "gg9999");
+      await userEvent.type(await screen.findByLabelText("Guest netID"), "gg9999");
       await userEvent.selectOptions(screen.getByLabelText("Your club"), "Cottage");
       await userEvent.click(screen.getByRole("button", { name: /check in/i }));
 

@@ -365,7 +365,7 @@ Create `lib/directory/lookup.test.ts`:
 
 ```ts
 import { describe, it, expect } from "vitest";
-import { isValidNetid, lookupNetid } from "./lookup";
+import { isValidNetid, lookupNetid } from "./netid";
 
 describe("isValidNetid", () => {
   it.each(["ab1234", "ab12", "zz9"])("accepts %s", (n) => {

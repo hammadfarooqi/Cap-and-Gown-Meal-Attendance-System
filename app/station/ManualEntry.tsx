@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { isValidNetid } from "@/lib/directory/lookup";
+import { isValidNetid } from "@/lib/directory/netid";
 
 /**
  * Type a netID by hand.

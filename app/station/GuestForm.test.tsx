@@ -25,7 +25,7 @@ describe("GuestForm", () => {
     await userEvent.selectOptions(screen.getByLabelText("Your club"), "Cottage");
     await userEvent.click(screen.getByRole("button", { name: /check in/i }));
 
-    expect(onSubmit).toHaveBeenCalledWith("ab1234", "Cottage");
+    expect(onSubmit).toHaveBeenCalledWith("ab1234", "Cottage", "");
   });
 
   it("PRE-FILLS THE NETID THEY JUST TYPED", async () => {

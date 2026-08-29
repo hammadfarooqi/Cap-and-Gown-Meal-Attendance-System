@@ -1,4 +1,4 @@
-import { isValidNetid } from "@/lib/directory/lookup";
+import { isValidNetid } from "@/lib/directory/netid";
 
 /**
  * Work out who a photo file belongs to.

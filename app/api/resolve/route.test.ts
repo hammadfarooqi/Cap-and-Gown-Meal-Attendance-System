@@ -68,6 +68,8 @@ describe("POST /api/resolve", () => {
     expect((await res.json()).data).toEqual({
       netid: "res00001",
       fullName: "Resolve Member",
+      // Carried so the tablet can match a card printed with the legal name.
+      directoryName: null,
       isMember: true,
       homeClub: "Cap & Gown",
       photoPath: "res00001.webp",

@@ -275,7 +275,31 @@ new cards arrive.
 
 ## 11. Open questions this touches
 
-**O2 — the directory lookup — is not closed by this, and it is now sharper.**
+**O2 — CLOSED 2026-08-29.** Princeton's LDAP directory answers anonymous
+queries over the public internet: no credential, no VPN, no application.
+Verified from a deployed Vercel function in `iad1` at 15 ms plaintext and
+45 ms TLS, and all 196 members resolve. `lib/directory/ldap.ts` is the whole
+of it.
+
+It does two jobs, and the second matters more than the first. It supplies a
+name for a guest typed in by hand — the last case the card could not cover.
+And it **refuses a netID that cannot exist**: `hf4899` for `hf4888` is
+well-formed, passes every local check, and used to invent a person no later
+query could tell from a real guest.
+
+The rule the design rests on: *no such person* and *I could not ask* are never
+confused. Only the first may refuse anybody. A directory that is slow, down,
+or unreachable refuses nobody, and the guest is created exactly as before —
+which is why nothing about this can stop a lane.
+
+The TigerBook API was investigated and is dead: its host returns Heroku's "no
+such app" page and there is no successor. The OIT Active Directory API works
+and covers staff and graduate students too, but needs a faculty-sponsored
+service account and one on-campus session — and eating clubs are not
+University entities, so it may not be granted at all.
+
+**What follows below was the position before that, kept because it explains
+why the card path was built not to need a directory.**
 A card swipe hands us a real name, so any guest who swipes appears by name
 with no directory at all. A **typed** netID does not: `lookupNetid` is still a
 stub returning a null name, so a manually-entered new guest is stored with

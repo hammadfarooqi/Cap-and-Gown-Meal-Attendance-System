@@ -168,6 +168,18 @@ Do not "fix" these without reading the reasoning first.
   base survives a reissue. This reverses the original design, which bound both
   numbers so whichever survived kept working — the index is what makes the
   rule true when two lanes both believe somebody is unbound.
+- **`people.directory_name` is not for display, ever.** It holds what the
+  University calls somebody; `full_name` holds what the club calls them, and
+  that is what goes on a screen. The pair exists because a TigerCard is
+  printed from the University's record: 5 of 196 members would not have
+  matched their own card without it, four of them a nickname against a legal
+  first name. The matcher tries both.
+- **`lookupDirectory` returning `unavailable` must never refuse anybody.**
+  Only `absent` — the directory saying, definitively, that no such netID
+  exists — is allowed to. Confusing the two turns a slow network into a person
+  turned away at the door. `lib/directory/ldap.test.ts` talks to the real
+  server on purpose, because a mock cannot tell you whether error 32 still
+  means what it meant.
 - **The card's printed name is never an identity, only a shortlist.** Two
   members share a full name; eight surnames collide; a card carries the name
   of any student, not only a member. The match produces candidate tiles and a
@@ -264,7 +276,11 @@ and check the club Wi-Fi for a captive portal or client isolation.
   only because neither conflict can happen before cards have been bound at
   all. It must exist well before the February roster jump, when ~100 new
   members arrive with ~100 new cards.
-- **O2, the directory lookup. Narrowed 2026-08-27.** A guest who SWIPES is now
+- **O2 — CLOSED 2026-08-29.** Princeton's LDAP directory answers anonymous
+  queries from the public internet, verified from Vercel itself. It names a
+  hand-typed guest and, more usefully, refuses a netID that cannot exist. See
+  `lib/directory/ldap.ts`. Nothing was left of the position below:
+- ~~**O2, the directory lookup. Narrowed 2026-08-27.**~~ A guest who SWIPES is now
   named from their card, so this only affects a guest entered by hand, who is
   still stored as their netID. `lib/directory/lookup.ts` is the seam; swapping
   it is the whole change. It has still never been shown to work from a Vercel

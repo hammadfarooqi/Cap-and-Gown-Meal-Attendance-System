@@ -61,8 +61,21 @@ two" for the other two.
 
 ## 3. Assumption changes
 
-**A1 — amended.** One token per card, not two. The token is **track 1's
-15-digit number**. Track 2 is the same number plus a four-digit suffix
+**A1 — amended twice.** One token per card, not two. The token is **track 1's
+number, whatever its length**.
+
+The "15-digit" claim held for one card and was wrong. Four real cards were
+measured on 2026-08-31: three were 15 digits behind issuer prefix `60162192`,
+and a fourth was **17 digits** behind `60162196`. Nothing in the code ever
+depended on the length — the token is whatever track 1 says, which is stable
+per card, and that is all a binding needs. But the number was written down as
+a fact in three places and it was not one.
+
+One consequence is still unmeasured: the track-2-only fallback trims exactly
+four digits, and no card with a 17-digit track 1 has been read on track 2
+alone. If such a card's suffix is not four digits, a track-2-only read would
+produce a different token than a track-1 read of the same card. The reader in
+use emits both tracks, so this has never been exercised. Track 2 is the same number plus a four-digit suffix
 (`8700`) that has the shape of a card issue number. We assume the 15-digit
 base is stable across a reissue. If a card presents no track 1, take track 2
 minus its last four digits; the suffix length is assumed to be four.

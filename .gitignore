@@ -48,3 +48,18 @@ playwright-report/
 # Student rosters. Real names and email addresses — never in the repo.
 *.csv
 !supabase/**/*.csv
+
+# Photographs of real students. Same reason as *.csv above: git history is
+# permanent, and a face is more identifying than a name. The club sends these
+# as an email attachment dump, so they land in whatever folder someone made.
+# Tracked app icons live in public/ and are re-allowed below.
+*.jpg
+*.jpeg
+*.heic
+photos/
+headshots/
+fwdpicturesofmembers/
+*picturesofmembers*/
+photos-matched/
+photos-needs-review/
+!public/**

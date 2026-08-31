@@ -6,9 +6,16 @@ type AvatarProps = {
   size?: "large" | "tile";
 };
 
+/**
+ * 4:5 portraits, not circles.
+ *
+ * A circle inscribed in a square crop showed a small face with the top of the
+ * head already gone. The photos are portraits; drawn as portraits the face
+ * fills the frame.
+ */
 const SIZES = {
-  large: "h-64 w-64",
-  tile: "h-32 w-32",
+  large: "h-64 aspect-[4/5]",
+  tile: "h-32 aspect-[4/5]",
 } as const;
 
 const TEXT = {
@@ -41,7 +48,7 @@ export function Avatar({ name, url, size = "large" }: AvatarProps) {
         src={url}
         alt=""
         data-testid="avatar-photo"
-        className={`${SIZES[size]} rounded-full object-cover shadow-2xl ring-1 ring-white/10`}
+        className={`${SIZES[size]} rounded-2xl object-cover shadow-2xl ring-1 ring-white/10`}
       />
     );
   }
@@ -50,7 +57,7 @@ export function Avatar({ name, url, size = "large" }: AvatarProps) {
     <div
       data-testid="avatar-initials"
       aria-hidden="true"
-      className={`flex ${SIZES[size]} items-center justify-center rounded-full bg-oxblood-wash font-display ${TEXT[size]} text-ink-secondary ring-1 ring-line-strong`}
+      className={`flex ${SIZES[size]} items-center justify-center rounded-2xl bg-oxblood-wash font-display ${TEXT[size]} text-ink-secondary ring-1 ring-line-strong`}
     >
       {initials(name)}
     </div>

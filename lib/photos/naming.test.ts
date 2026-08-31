@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { netidFromFilename } from "./naming";
+import { netidFromFilename, PHOTO_WIDTH, PHOTO_HEIGHT } from "./naming";
 
 describe("netidFromFilename", () => {
   it.each([
@@ -40,5 +40,15 @@ describe("netidFromFilename", () => {
     expect(netidFromFilename("img_4471.jpg")).toBeNull();
     expect(netidFromFilename("photo.jpg")).toBeNull();
     expect(netidFromFilename("ab1234.jpg")).toBe("ab1234");
+  });
+});
+
+describe("the headshot shape", () => {
+  it("IS A 4:5 PORTRAIT, not a square", () => {
+    // The club's originals are 857x1200. Squaring a portrait cropped 171px
+    // off the top, which in a posed headshot is the top of somebody's head.
+    // If this ever goes back to a square, that returns with it.
+    expect(PHOTO_WIDTH / PHOTO_HEIGHT).toBeCloseTo(0.8, 5);
+    expect(PHOTO_WIDTH).toBeLessThan(PHOTO_HEIGHT);
   });
 });

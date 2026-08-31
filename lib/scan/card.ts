@@ -11,6 +11,11 @@
  * numbers, which is exactly why `credentials` maps many tokens to one person
  * rather than storing an id on the person.
  *
+ * NOT every card is the same length. Four real cards, measured 2026-08-31:
+ * three were 15 digits behind one issuer prefix, a fourth was 17 behind a
+ * different one. Nothing here assumes a length — the token is whatever track 1
+ * says, which is stable per card and that is all binding needs.
+ *
  * Track 2's number is track 1's with four more digits ("8700"). That has the
  * shape of a card issue or sequence suffix, which would change when a lost
  * card is replaced while the 15-digit base stayed put. Nobody has swiped a

@@ -166,6 +166,9 @@ Do not "fix" these without reading the reasoning first.
   form's dropdown rather than merely discouraged: somebody standing there is
   either a member, in which case their netID resolves them properly, or they
   are not and the option is a lie.
+- **Card numbers are NOT all the same length.** Four real cards, 2026-08-31:
+  three at 15 digits behind prefix `60162192`, one at 17 behind `60162196`.
+  Nothing assumes a length and nothing should start to.
 - **`credentials` maps ONE token to one person, enforced by a unique index.**
   A TigerCard carries two numbers, and the second is the first plus a
   four-digit suffix. Only the 15-digit base is stored, on the bet that the

@@ -29,6 +29,15 @@ describe("parseCardSwipe", () => {
     expect(parseCardSwipe(REAL_SWIPE).nameParts).toHaveLength(2);
   });
 
+  it("TAKES A LONGER TRACK 1 AS IT COMES, because not every card is 15 digits", () => {
+    // Measured 2026-08-31 across four real cards: three were 15 digits with
+    // one issuer prefix, the fourth was 17 with a different one. Nothing may
+    // assume a length — the number is whatever the card says it is.
+    const swipe = parseCardSwipe("%99999966084639801=RIDA/EXAMPLE?;999999660846398018700=?");
+    expect(swipe.token).toBe("99999966084639801");
+    expect(swipe.token).toHaveLength(17);
+  });
+
   it("TRIMS THE SUFFIX when only track 2 is read", () => {
     // Some readers emit track 2 alone. Storing the 19-digit number would file
     // the same physical card under a different token than a track-1 read of

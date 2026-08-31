@@ -40,6 +40,17 @@ export function netidFromFilename(filename: string): string | null {
   return null;
 }
 
-/** 400x400 WebP at roughly this size keeps a 300-member set near 12MB. */
-export const PHOTO_EDGE = 400;
+/**
+ * 400x500 WebP — a 4:5 portrait, not a square.
+ *
+ * The club's headshots arrive 857x1200. A square crop of a portrait throws
+ * away a fifth of the frame from the top and another fifth from the bottom,
+ * and in a posed headshot the head sits high, so the top of it goes. Keeping
+ * the portrait shape keeps the whole head and makes the face fill more of
+ * whatever it is drawn into.
+ *
+ * At this size a 300-member set is still comfortably under 12MB.
+ */
+export const PHOTO_WIDTH = 400;
+export const PHOTO_HEIGHT = 500;
 export const PHOTO_QUALITY = 0.82;

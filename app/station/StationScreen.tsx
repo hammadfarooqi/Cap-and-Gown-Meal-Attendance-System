@@ -47,6 +47,8 @@ type Takeover =
       kind: "candidates";
       card: string | null;
       candidates: CachedPerson[];
+      /** One per candidate, aligned by index. Revoked when the screen clears. */
+      photos: (string | null)[];
       nameParts: string[];
       entryMethod: "scan" | "manual";
       typed: string | null;
@@ -115,7 +117,13 @@ export function StationScreen({
   const deps = { store, api, deviceToken, now: getNow };
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const takeoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const activeUrl = useRef<string | null>(null);
+  /** Every object URL currently on screen, so none of them leaks. */
+  const activeUrls = useRef<string[]>([]);
+
+  const revokeActive = useCallback(() => {
+    for (const url of activeUrls.current) URL.revokeObjectURL(url);
+    activeUrls.current = [];
+  }, []);
 
   const clearTimers = useCallback(() => {
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
@@ -127,9 +135,9 @@ export function StationScreen({
     (next: Notice) => {
       clearTimers();
 
-      // Revoke the previous photo before replacing it, or every scan leaks one.
-      if (activeUrl.current) URL.revokeObjectURL(activeUrl.current);
-      activeUrl.current = next.kind === "checked-in" ? next.url : null;
+      // Revoke the previous photos before replacing them, or every scan leaks.
+      revokeActive();
+      if (next.kind === "checked-in" && next.url) activeUrls.current = [next.url];
 
       setTakeover(null);
       setNotice(next);
@@ -138,7 +146,7 @@ export function StationScreen({
         noticeDuration(next, holdMs),
       );
     },
-    [holdMs, clearTimers],
+    [holdMs, clearTimers, revokeActive],
   );
 
   /**
@@ -151,14 +159,16 @@ export function StationScreen({
   const showTakeover = useCallback(
     (next: Takeover) => {
       clearTimers();
-      if (activeUrl.current) URL.revokeObjectURL(activeUrl.current);
-      activeUrl.current = null;
+      revokeActive();
+      if (next.kind === "candidates") {
+        activeUrls.current = next.photos.filter((u): u is string => u !== null);
+      }
 
       setNotice(null);
       setTakeover(next);
       takeoverTimer.current = setTimeout(() => setTakeover(null), takeoverMs);
     },
-    [takeoverMs, clearTimers],
+    [takeoverMs, clearTimers, revokeActive],
   );
 
   const returnToIdle = useCallback(() => {
@@ -245,6 +255,12 @@ export function StationScreen({
                 kind: "candidates",
                 card: outcome.card,
                 candidates: outcome.candidates,
+                // Resolved here rather than inside the tile, because the
+                // object URLs have to be revoked when the screen clears and
+                // this is where that lifecycle already lives.
+                photos: await Promise.all(
+                  outcome.candidates.map((p) => photoUrl(store, p.photoPath)),
+                ),
                 nameParts: outcome.nameParts,
                 entryMethod: outcome.entryMethod,
                 typed: outcome.typed,
@@ -287,7 +303,7 @@ export function StationScreen({
     return () => {
       if (noticeTimer.current) clearTimeout(noticeTimer.current);
       if (takeoverTimer.current) clearTimeout(takeoverTimer.current);
-      if (activeUrl.current) URL.revokeObjectURL(activeUrl.current);
+      for (const url of activeUrls.current) URL.revokeObjectURL(url);
     };
   }, []);
 
@@ -306,6 +322,7 @@ export function StationScreen({
       {takeover?.kind === "candidates" && (
         <Candidates
           people={takeover.candidates}
+          photos={takeover.photos}
           onPick={async (netid) =>
             // A tile can only exist for a card, so `card` is never null here.
             finish(await bindMember(takeover.card!, netid, deps, takeover.entryMethod))

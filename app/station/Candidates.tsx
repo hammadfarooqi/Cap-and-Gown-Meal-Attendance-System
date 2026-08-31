@@ -6,6 +6,14 @@ import { Avatar } from "./Avatar";
 type CandidatesProps = {
   /** Unbound people the card's printed name could mean. May be empty. */
   people: CachedPerson[];
+  /**
+   * A headshot per person, aligned with `people`, or null where there is none.
+   *
+   * This tile is the ONE place a face earns its keep: two members share a full
+   * name, so they share their initials too, and a photo separates them at a
+   * glance where "hl7165 or hl7273?" has to be read.
+   */
+  photos: (string | null)[];
   onPick: (netid: string) => void;
   onGuest: () => void;
   onCancel: () => void;
@@ -21,7 +29,7 @@ type CandidatesProps = {
  * A name never identifies anybody (spec A8), so nothing here binds without a
  * person tapping their own tile.
  */
-export function Candidates({ people, onPick, onGuest, onCancel }: CandidatesProps) {
+export function Candidates({ people, photos, onPick, onGuest, onCancel }: CandidatesProps) {
   return (
     <div className="flex flex-col items-center gap-8">
       {/* Three headings, not two. With no tiles, "Is this you?" is a question
@@ -37,14 +45,14 @@ export function Candidates({ people, onPick, onGuest, onCancel }: CandidatesProp
 
       {people.length > 0 && (
         <div className="flex flex-wrap justify-center gap-6">
-          {people.map((person) => (
+          {people.map((person, index) => (
             <button
               key={person.netid}
               type="button"
               onClick={() => onPick(person.netid)}
               className="flex flex-col items-center gap-3 rounded-2xl px-8 py-6 ring-1 ring-line-strong transition-colors duration-150 hover:bg-oxblood-wash"
             >
-              <Avatar name={person.fullName} url={null} size="tile" />
+              <Avatar name={person.fullName} url={photos[index] ?? null} size="tile" />
               <span className="font-display text-3xl">{person.fullName}</span>
               {/* Load-bearing, not decoration, and sized to say so. Rendered
                   side by side, two members who share a full name produce two

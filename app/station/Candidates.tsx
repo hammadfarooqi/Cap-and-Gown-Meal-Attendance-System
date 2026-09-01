@@ -11,7 +11,7 @@ type CandidatesProps = {
    *
    * This tile is the ONE place a face earns its keep: two members share a full
    * name, so they share their initials too, and a photo separates them at a
-   * glance where "hl7165 or hl7273?" has to be read.
+   * glance where "jm4001 or jm4002?" has to be read.
    */
   photos: (string | null)[];
   onPick: (netid: string) => void;

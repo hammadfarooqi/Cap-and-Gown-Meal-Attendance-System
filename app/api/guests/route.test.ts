@@ -171,7 +171,7 @@ describe("POST /api/guests", () => {
   });
 
   it("REFUSES A NETID THE DIRECTORY IS CERTAIN DOES NOT EXIST", async () => {
-    // hf4899 for hf4888 is well-formed, passes every local check, and used to
+    // ak2102 for ak2101 is well-formed, passes every local check, and used to
     // invent a person no later query could tell from a real guest.
     directory.mockResolvedValue({ status: "absent" });
 

@@ -2,13 +2,18 @@ import { describe, it, expect } from "vitest";
 import { parseCsv } from "./csv-parse";
 import { parseRoster } from "./parse";
 
-/** The club's real shape: a group header row, then Name/Email pairs. */
+/**
+ * The club's real SHAPE, with invented people: a group header row, then
+ * Name/Email pairs. The parser cares about column geometry, not identity, so
+ * a fixture never needs a real member. A netID is an email address and git
+ * history is permanent.
+ */
 const CLUB_FORMAT = [
   "Juniors (2028),,Seniors (2027),",
   "Name,Email Address,Name,Email Address",
-  "Abigail Jung,aj3691@princeton.edu,Aaliyah Sayed,as6787@princeton.edu",
-  "Adam Moussa,am5109@princeton.edu,Abhi Bansal,ab4386@princeton.edu",
-  "Zoe Nadal,zn0242@princeton.edu,,",
+  "Ada Kestrel,ak2101@princeton.edu,Dara Okonkwo,do2104@princeton.edu",
+  "Bruno Marlowe,bm2102@princeton.edu,Elias Fenn,ef2105@princeton.edu",
+  "Cleo Vance,cv2103@princeton.edu,,",
 ].join("\n");
 
 describe("parseCsv", () => {
@@ -48,18 +53,18 @@ describe("parseRoster", () => {
 
     expect(errors).toEqual([]);
     expect(rows).toHaveLength(5);
-    expect(rows[0]).toEqual({ netid: "aj3691", fullName: "Abigail Jung", classYear: 2028 });
+    expect(rows[0]).toEqual({ netid: "ak2101", fullName: "Ada Kestrel", classYear: 2028 });
   });
 
   it("TAKES THE CLASS YEAR FROM THE GROUP HEADER ABOVE EACH PAIR", () => {
     const { rows } = parseRoster(CLUB_FORMAT);
 
-    expect(rows.find((r) => r.netid === "aj3691")!.classYear).toBe(2028);
-    expect(rows.find((r) => r.netid === "as6787")!.classYear).toBe(2027);
+    expect(rows.find((r) => r.netid === "ak2101")!.classYear).toBe(2028);
+    expect(rows.find((r) => r.netid === "do2104")!.classYear).toBe(2027);
   });
 
   it("derives the netID from the email, so nobody types it", () => {
-    expect(parseRoster(CLUB_FORMAT).rows.map((r) => r.netid)).toContain("zn0242");
+    expect(parseRoster(CLUB_FORMAT).rows.map((r) => r.netid)).toContain("cv2103");
   });
 
   it("ACCEPTS A THIRD PAIR, which is what spring looks like", () => {
@@ -68,7 +73,7 @@ describe("parseRoster", () => {
     const spring = [
       "Sophomores (2029),,Juniors (2028),,Seniors (2027),",
       "Name,Email Address,Name,Email Address,Name,Email Address",
-      "New Person,np1111@princeton.edu,Abigail Jung,aj3691@princeton.edu,Aaliyah Sayed,as6787@princeton.edu",
+      "New Person,np1111@princeton.edu,Ada Kestrel,ak2101@princeton.edu,Dara Okonkwo,do2104@princeton.edu",
     ].join("\n");
 
     const { rows, errors } = parseRoster(spring);

@@ -17,11 +17,13 @@ export type PhotoFetcher = (path: string) => Promise<Blob | null>;
  * The bucket is private, so this carries the tablet's device token. A public
  * bucket would put every student's face behind a guessable URL.
  *
- * photoPath is stored as "<netid>.webp"; the route takes the netID.
+ * photoPath is "<netid>.webp" optionally followed by a version — the route
+ * takes only the netID, so everything from the extension onwards is dropped.
+ * See cachePhotos for why the version is there at all.
  */
 export function makePhotoFetcher(deviceToken: string): PhotoFetcher {
   return async (path) => {
-    const netid = path.replace(/\.webp$/i, "");
+    const netid = path.replace(/\.webp.*$/i, "");
     try {
       const res = await fetch(`${PHOTO_BASE_PATH}/${netid}`, {
         headers: { authorization: `Bearer ${deviceToken}` },
@@ -62,6 +64,12 @@ async function pooled<T>(
  * every launch after. A single failure is swallowed on purpose: one missing
  * photo must not cost the other 299, and a person with no photo still checks
  * in perfectly — the avatar falls back to their initials.
+ *
+ * The cache is keyed on photoPath, which is why that path carries a version.
+ * Keyed on "<netid>.webp" alone, a REPLACED photo is never fetched again: the
+ * tablet already holds that key, so it skips it — through a version bump,
+ * through a reload, forever. That happened for real when 187 headshots were
+ * re-cropped and re-uploaded, and every tablet kept serving the old ones.
  */
 async function cachePhotos(deps: BootstrapDeps, paths: string[]): Promise<number> {
   const fetchPhoto = deps.fetchPhoto ?? makePhotoFetcher(deps.deviceToken);
@@ -78,6 +86,10 @@ async function cachePhotos(deps: BootstrapDeps, paths: string[]): Promise<number
     await deps.store.putPhoto(path, blob);
     stored += 1;
   });
+
+  // The old version of a replaced photo is still in there under its old key,
+  // and so is anybody who has left the club. Neither is ever read again.
+  await deps.store.prunePhotos(paths);
 
   return stored;
 }

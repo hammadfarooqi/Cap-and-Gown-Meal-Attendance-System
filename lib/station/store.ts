@@ -194,6 +194,24 @@ export async function openStore() {
       return (await db.getKey("photos", path)) !== undefined;
     },
 
+    /**
+     * Drop every cached photo the roster no longer refers to.
+     *
+     * Photo paths carry a version, so replacing somebody's headshot leaves the
+     * old blob behind under the old key. Without this the cache grows by a
+     * full set every time the photos are redone.
+     */
+    async prunePhotos(keep: string[]): Promise<number> {
+      const wanted = new Set(keep);
+      const held = await db.getAllKeys("photos");
+      const stale = held.filter((key) => !wanted.has(String(key)));
+
+      const tx = db.transaction("photos", "readwrite");
+      await Promise.all(stale.map((key) => tx.store.delete(key)));
+      await tx.done;
+      return stale.length;
+    },
+
     async enqueue(item: OutboxItem): Promise<void> {
       await db.add("outbox", item);
     },

@@ -49,7 +49,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  const { error } = await db.from("people").update({ photo_path: path }).eq("netid", netid);
+  // Versioned so the tablets notice. They cache photos by this string, so a
+  // path that does not change when the image does means a replaced headshot
+  // never reaches them again.
+  const versionedPath = `${path}?v=${Date.now()}`;
+
+  const { error } = await db.from("people").update({ photo_path: versionedPath }).eq("netid", netid);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Tablets fetch the new headshot on their next sync.

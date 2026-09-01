@@ -20,7 +20,7 @@ export type RosterParse = {
  *
  *   Juniors (2028) ,                      , Seniors (2027) ,
  *   Name           , Email Address        , Name           , Email Address
- *   Abigail Jung   , aj3691@princeton.edu , Aaliyah Sayed  , as6787@princeton.edu
+ *   Ada Kestrel    , ak2101@princeton.edu , Dara Okonkwo   , do2104@princeton.edu
  *
  * The class year lives in a group header ABOVE the column headers, and the
  * pairs run out at different rows. Any number of pairs is accepted, because

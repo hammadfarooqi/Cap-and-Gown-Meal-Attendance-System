@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     const directory = await lookupDirectory(netid);
 
     // "No such netID" is the one answer allowed to refuse a person, and it is
-    // what stops a well-formed typo — hf4899 for hf4888 — becoming a phantom
+    // what stops a well-formed typo — ak2102 for ak2101 — becoming a phantom
     // guest that no later query can tell from a real one. A directory that is
     // merely unreachable refuses nobody.
     if (directory.status === "absent") {

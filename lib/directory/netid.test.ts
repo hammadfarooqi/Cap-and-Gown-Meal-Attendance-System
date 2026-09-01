@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { isValidNetid, normaliseNetid } from "./netid";
 
 describe("isValidNetid", () => {
-  it.each(["ab1234", "zz9999", "hl7165"])("accepts %s", (n) => {
+  it.each(["ab1234", "zz9999", "jm4001"])("accepts %s", (n) => {
     expect(isValidNetid(n)).toBe(true);
   });
 

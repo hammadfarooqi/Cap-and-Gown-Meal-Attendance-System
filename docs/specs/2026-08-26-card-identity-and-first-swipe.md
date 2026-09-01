@@ -261,7 +261,7 @@ person's name.
 | 5 | Unbound card, two matches (the shared full name) | Two tiles |
 | 6 | The second of them swipes after the first bound | One tile — the other one |
 | 7 | Name matches only people who already have cards | Zero tiles → guest form → their own netID → checked in as a guest |
-| 8 | `BILL/KIM` on the card, `William Kim` on the roster | Zero tiles → guest form → types `wk1475` → **bound and checked in as a member** |
+| 8 | `SAM/OKAFOR` on the card, `Samuel Okafor` on the roster | Zero tiles → guest form → types `so4210` → **bound and checked in as a member** |
 | 9 | Replacement card whose base changed | Zero tiles → guest form → netID → **409, see an officer** |
 | 10 | A guest taps a member's tile by mistake | Wrong binding. Caught only by the netID and photo on the tile. The accepted residual risk |
 | 11 | Both of them, two lanes, same minute | Both lanes believe both are unbound. The unique index refuses the second binding |
@@ -296,7 +296,7 @@ of it.
 
 It does two jobs, and the second matters more than the first. It supplies a
 name for a guest typed in by hand — the last case the card could not cover.
-And it **refuses a netID that cannot exist**: `hf4899` for `hf4888` is
+And it **refuses a netID that cannot exist**: `ak2102` for `ak2101` is
 well-formed, passes every local check, and used to invent a person no later
 query could tell from a real guest.
 

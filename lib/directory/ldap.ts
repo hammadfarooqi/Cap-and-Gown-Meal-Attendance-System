@@ -35,7 +35,7 @@ export type DirectoryLookup =
   /** We could not ask — down, slow, or offline. NEVER refuse on this. */
   | { status: "unavailable" };
 
-/** `displayName` is "Hammad A. Farooqi"; `pudisplayname` is "Farooqi, Hammad A." */
+/** `displayName` is "Ada B. Kestrel"; `pudisplayname` is "Kestrel, Ada B." */
 function firstString(value: unknown): string | null {
   if (typeof value === "string") return value.trim() || null;
   if (Array.isArray(value) && typeof value[0] === "string") return value[0].trim() || null;

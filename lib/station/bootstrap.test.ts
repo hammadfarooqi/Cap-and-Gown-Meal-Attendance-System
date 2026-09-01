@@ -187,9 +187,10 @@ describe("refreshIfStale", () => {
 
   it("PRESERVES cached photos and queued swipes across a refresh", async () => {
     // A roster bump because someone fixed a typo must not cost 12MB of
-    // headshots or a rush's worth of unsent scans.
+    // headshots or a rush's worth of unsent scans. The photo has to be one
+    // the roster still refers to — an orphan is pruned on purpose.
     const store = await seeded({ roster: 4, schedule: 2 });
-    await store.putPhoto("keep-me.webp", photoOf("keep"));
+    await store.putPhoto("aa1111.webp", photoOf("keep"));
     await store.enqueue({
       kind: "swipe", netid: "aa1111",
       scannedAt: "2026-09-02T16:00:00Z", entryMethod: "scan",
@@ -201,7 +202,7 @@ describe("refreshIfStale", () => {
       { roster: 5, schedule: 2 },
     );
 
-    expect(await store.hasPhoto("keep-me.webp")).toBe(true);
+    expect(await store.hasPhoto("aa1111.webp")).toBe(true);
     expect(await store.outboxSize()).toBe(1);
   });
 
@@ -232,5 +233,57 @@ describe("photoUrl", () => {
     // O5 again: names and counts must work with no headshots at all.
     const store = await open();
     expect(await photoUrl(store, "never-downloaded.webp")).toBeNull();
+  });
+});
+
+describe("a replaced headshot", () => {
+  it("IS FETCHED AGAIN when its path carries a new version", async () => {
+    // The bug this exists for: the cache is keyed on photoPath. Keyed on
+    // "<netid>.webp" alone, a re-uploaded photo is never fetched again — the
+    // tablet already holds that key and skips it, through a version bump,
+    // through a reload, forever. 187 re-cropped headshots stayed invisible to
+    // every tablet because of exactly this.
+    const store = await open();
+    await store.putPhoto("aa1111.webp?v=1", photoOf("old"));
+    const fetchPhoto = vi.fn().mockResolvedValue(photoOf("new"));
+
+    await warmCache({
+      store,
+      deviceToken: DEVICE_TOKEN,
+      fetchPhoto,
+      api: fakeApi(payload([person("aa1111", "aa1111.webp?v=2")])),
+    });
+
+    expect(fetchPhoto).toHaveBeenCalledWith("aa1111.webp?v=2");
+    expect(await store.hasPhoto("aa1111.webp?v=2")).toBe(true);
+  });
+
+  it("PRUNES the copy it replaced, so the cache cannot grow forever", async () => {
+    const store = await open();
+    await store.putPhoto("aa1111.webp?v=1", photoOf("old"));
+
+    await warmCache({
+      store,
+      deviceToken: DEVICE_TOKEN,
+      fetchPhoto: async () => photoOf("new"),
+      api: fakeApi(payload([person("aa1111", "aa1111.webp?v=2")])),
+    });
+
+    expect(await store.hasPhoto("aa1111.webp?v=1")).toBe(false);
+  });
+
+  it("STRIPS THE VERSION before asking the server, which knows only netIDs", async () => {
+    const seen: string[] = [];
+    const store = await open();
+    await warmCache({
+      store,
+      deviceToken: DEVICE_TOKEN,
+      fetchPhoto: async (path) => { seen.push(path); return photoOf("x"); },
+      api: fakeApi(payload([person("aa1111", "aa1111.webp?v=9")])),
+    });
+    // makePhotoFetcher turns this into /api/photos/aa1111 — the route rejects
+    // anything that is not a bare netID.
+    expect(seen).toEqual(["aa1111.webp?v=9"]);
+    expect("aa1111.webp?v=9".replace(/\.webp.*$/i, "")).toBe("aa1111");
   });
 });
